@@ -1,0 +1,18 @@
+[package]
+name = "mxd"
+version = "0.1.0"
+edition = "2024"
+authors = ["Koi to Coco <admin@koito.fun>"]
+
+[dependencies]
+common = { path = "../common" }
+axum = { version = "0.8.1", features = ["ws"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.44.0", features = ["sync", "rt-multi-thread"] }
+anyhow = "1.0.97"
+log = "0.4.26"
+simple_logger = "5.0.0"
+tokio-util = "0.7.13"
+if-addrs = "0.13.3"
+rand = "0.9.0"
