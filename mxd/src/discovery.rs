@@ -1,26 +1,28 @@
-use std::{net::Ipv4Addr, str::FromStr};
+use std::str::FromStr;
 
 use anyhow::Result;
 use common::discovery::{
     DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE, get_multicast_addr,
-    get_multicast_ipaddr,
 };
 use log::{error, info, trace, warn};
 use tokio::{net::UdpSocket, select, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
 fn get_ws_urls() -> Result<Vec<String>> {
-    let urls = if_addrs::get_if_addrs()?.iter().filter_map(|if_| {
-        if if_.is_loopback() {
-            return None;
-        }
-        let ip = if_.ip();
-        if ip.is_ipv4() {
-            Some(format!("ws://{}:8080/ws", ip))
-        } else {
-            None
-        }
-    }).collect();
+    let urls = if_addrs::get_if_addrs()?
+        .iter()
+        .filter_map(|if_| {
+            if if_.is_loopback() {
+                return None;
+            }
+            let ip = if_.ip();
+            if ip.is_ipv4() {
+                Some(format!("ws://{}:8080/ws", ip))
+            } else {
+                None
+            }
+        })
+        .collect();
     Ok(urls)
 }
 
@@ -62,13 +64,6 @@ pub fn serve() -> (JoinHandle<()>, CancellationToken) {
     let token_ = token.clone();
     let join = tokio::spawn(async move {
         if let Ok(socket) = UdpSocket::bind(get_multicast_addr()).await {
-            if socket
-                .join_multicast_v4(get_multicast_ipaddr(), Ipv4Addr::UNSPECIFIED)
-                .is_err()
-            {
-                error!("Failed to join multicast group");
-                return;
-            }
             log::info!(
                 "Discovery service started at {}",
                 socket.local_addr().unwrap()

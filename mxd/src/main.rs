@@ -1,7 +1,7 @@
 use std::env;
 
 use anyhow::Result;
-use log::info;
+use log::{info, LevelFilter};
 
 mod api;
 mod discovery;
@@ -11,8 +11,9 @@ mod states;
 #[tokio::main]
 async fn main() -> Result<()> {
     simple_logger::SimpleLogger::new()
-        .env()
+        .with_level(LevelFilter::Info)
         .with_utc_timestamps()
+        .env()
         .init()
         .unwrap();
 

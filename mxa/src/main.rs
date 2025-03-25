@@ -1,5 +1,5 @@
 use discovery::discover_controller;
-use log::{error, info, warn};
+use log::{LevelFilter, error, info, warn};
 
 mod discovery;
 mod executor;
@@ -9,8 +9,9 @@ mod utils;
 #[tokio::main]
 async fn main() {
     simple_logger::SimpleLogger::new()
-        .env()
+        .with_level(LevelFilter::Info)
         .with_utc_timestamps()
+        .env()
         .init()
         .unwrap();
 

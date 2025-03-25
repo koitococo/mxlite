@@ -12,7 +12,6 @@ pub const MAGIC_RESPONSE: &str = "MXA-RESPONSE";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryRequest {
     pub magic: String,
-    pub addr: SocketAddr,
     pub revision: u32,
 }
 
@@ -50,10 +49,6 @@ impl ToString for DiscoveryRequest {
     }
 }
 
-pub fn get_multicast_ipaddr() -> Ipv4Addr {
-    Ipv4Addr::new(224, 233, 233, 233)
-}
-
 pub fn get_multicast_addr() -> SocketAddr {
-    SocketAddr::new(IpAddr::V4(get_multicast_ipaddr()), 11451)
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), 11451)
 }
