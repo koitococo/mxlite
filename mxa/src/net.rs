@@ -1,5 +1,9 @@
-use common::messages::{
-    AgentMessage, AgentResponse, AgentResponsePayload, ControllerMessage, ControllerRequest,
+use common::{
+    messages::{
+        AgentMessage, AgentResponse, AgentResponsePayload, CONNECT_HANDSHAKE_HEADER_KEY,
+        ConnectHandshake, ControllerMessage, ControllerRequest,
+    },
+    system_info::SystemInfo,
 };
 use std::{str::FromStr, sync::Arc};
 use tokio::{net::TcpStream, sync::Mutex};
@@ -9,7 +13,11 @@ use anyhow::Result;
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use log::{debug, error, info, trace, warn};
 use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message,
+    MaybeTlsStream, WebSocketStream, connect_async_with_config,
+    tungstenite::{
+        client::IntoClientRequest,
+        protocol::{Message, WebSocketConfig},
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -59,6 +67,71 @@ impl Context {
     }
 }
 
+pub(crate) async fn handle_ws_url(ws_url: String, host_id: String) -> Result<()> {
+    info!("Use Controller URL: {}", &ws_url);
+    loop {
+        info!("Connecting to controller websocket: {}", &ws_url);
+        let mut req = ws_url.clone().into_client_request()?;
+        req.headers_mut().insert(
+            CONNECT_HANDSHAKE_HEADER_KEY,
+            (ConnectHandshake {
+                version: common::messages::PROTOCOL_VERSION,
+                host_id: host_id.clone(),
+                system_info: SystemInfo::collect_info(),
+            })
+            .to_string()
+            .parse()?,
+        );
+        for retry in 0..5 {
+            match connect_async_with_config(
+                req.clone(),
+                Some(WebSocketConfig {
+                    ..Default::default()
+                }),
+                false,
+            )
+            .await
+            {
+                Ok((ws, _)) => {
+                    handle_conn(ws).await?;
+                    break;
+                }
+                Err(err) => {
+                    error!("Failed to connect to controller: {}", err);
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        ((1.5f32).powi(retry) * 3f32 + 5f32) as u64,
+                    ))
+                    .await;
+                }
+            }
+        }
+    }
+}
+
+async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<()> {
+    let (tx, mut rx) = ws.split();
+    let responder = RespondHandler::new(tx);
+    trace!("Websocket connected to controller. Begin to handle message loop");
+    while let Some(event) = rx.next().await {
+        match event {
+            Ok(ws_msg) => match handle_msg(ws_msg, responder.clone()).await {
+                Ok(c) => {
+                    if !c {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to handle message: {}", e);
+                }
+            },
+            Err(err) => {
+                error!("Failed to receive message: {}", err);
+            }
+        }
+    }
+    Ok(())
+}
+
 async fn handle_msg(ws_msg: Message, responder: RespondHandler) -> Result<bool> {
     debug!("Received message: {:?}", ws_msg);
     match ws_msg {
@@ -101,61 +174,10 @@ async fn handle_msg(ws_msg: Message, responder: RespondHandler) -> Result<bool> 
         Message::Binary(_) => {
             warn!("Received binary message from controller, which is not supported")
         }
-        Message::Ping(msg) => {
-            responder.respond(Message::Pong(msg)).await?;
-            trace!("Received Ping from controller, Pong sent");
-        }
-        Message::Pong(_) => trace!("Received Pong from controller"),
-        Message::Close(_) => warn!("Websocket connection closed, retry"),
+        Message::Ping(_) => trace!("Received Ping frame"),
+        Message::Pong(_) => trace!("Received Pong frame"),
+        Message::Close(_) => warn!("Connection is closing"),
         Message::Frame(_) => warn!("Received a malformed message from controller, ignored",),
     }
     Ok(true)
-}
-
-async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<()> {
-    let (tx, mut rx) = ws.split();
-    let responder = RespondHandler::new(tx);
-    trace!("Websocket connected to controller. Begin to handle message loop");
-    while let Some(event) = rx.next().await {
-        match event {
-            Ok(ws_msg) => match handle_msg(ws_msg, responder.clone()).await {
-                Ok(c) => {
-                    if !c {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to handle message: {}", e);
-                }
-            },
-            Err(err) => {
-                error!("Failed to receive message: {}", err);
-            }
-        }
-    }
-    Ok(())
-}
-
-pub(crate) async fn handle_ws_url(ws_url: String, host_id: String) -> Result<()> {
-    info!("Use Controller URL: {}", ws_url);
-    let ws_url = format!("{}?host_id={}", ws_url, host_id);
-    loop {
-        let ws_url = ws_url.clone();
-        info!("Connecting to controller websocket: {}", ws_url);
-        for retry in 0..5 {
-            match connect_async(ws_url.clone()).await {
-                Ok((ws, _)) => {
-                    handle_conn(ws).await?;
-                    break;
-                }
-                Err(err) => {
-                    error!("Failed to connect to controller: {}", err);
-                    tokio::time::sleep(std::time::Duration::from_secs(
-                        ((1.5f32).powi(retry) * 3f32 + 5f32) as u64,
-                    ))
-                    .await;
-                }
-            }
-        }
-    }
 }

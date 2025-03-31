@@ -73,7 +73,6 @@ pub async fn discover_controller() -> Result<Vec<String>> {
             select! {
                 _ = tokio::time::sleep(Duration::from_secs(15)) => {
                     info!("Discovery timeout");
-                    break;
                 }
                 r = recv_pack(&socket, &mut responses) => {
                     if let Err(err) = r {

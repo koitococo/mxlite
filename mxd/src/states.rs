@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use common::messages::{AgentResponse, ControllerMessage, ControllerRequest};
+use common::{messages::{AgentResponse, ControllerMessage, ControllerRequest}, system_info::SystemInfo};
 use log::debug;
 use serde::Serialize;
 use tokio::sync::{
@@ -17,7 +17,8 @@ pub(crate) enum TaskState {
 
 #[derive(Serialize, Debug, Clone)]
 pub(crate) struct ExtraInfo {
-    pub(crate) socket_info: Option<SocketConnectInfo>
+    pub(crate) socket_info: Option<SocketConnectInfo>,
+    pub(crate) system_info: Option<SystemInfo>,
 }
 
 pub(crate) struct Session {
@@ -32,6 +33,7 @@ impl ExtraInfo {
     pub(crate) fn new() -> Self {
         ExtraInfo {
             socket_info: None,
+            system_info: None,
         }
     }
 }

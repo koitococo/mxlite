@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+base64 = "0.22.1"
 serde = { version = "1.0.206", features = ["derive"] }
 serde_json = "1.0.124"
-tokio = { version = "1.44.1", features = ["fs"] }
+sysinfo = { version = "0.34.1", features = ["serde", "linux-netdevs", "linux-tmpfs"] }
+thiserror = "2.0.12"
+tokio = { version = "1.44.1", features = ["fs", "io-util"] }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }

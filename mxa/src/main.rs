@@ -10,11 +10,14 @@ mod utils;
 #[tokio::main]
 async fn main() -> Result<()> {
     simple_logger::SimpleLogger::new()
-        .with_level(LevelFilter::Info)
+        .with_level(if cfg!(debug_assertions) {
+            LevelFilter::Trace
+        } else {
+            LevelFilter::Info
+        })
         .with_utc_timestamps()
         .env()
-        .init()
-        .unwrap();
+        .init()?;
 
     info!("MetalX Agent - Launching");
     let host_id = match utils::get_machine_id() {
@@ -31,7 +34,7 @@ async fn main() -> Result<()> {
             }
         }
     };
-    let ws_url = match std::env::var("WS_URL") {
+    let ws_url = match std::env::var("MXD_URL") {
         Ok(url) => url,
         Err(_) => {
             let controllers = match discover_controller().await {
