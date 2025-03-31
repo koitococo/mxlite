@@ -6,18 +6,19 @@ use std::{
 
 use anyhow::{Result, anyhow};
 use axum::{
-    Router,
-    extract::{
+    Router, extract::{
         Query, State,
+        connect_info::{ConnectInfo, Connected},
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
     http::StatusCode,
     response::IntoResponse,
     routing::get,
+    serve::IncomingStream,
 };
 use common::messages::AgentMessage;
 use log::{debug, error, info, warn};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::{net::TcpListener, select};
 
 use crate::{
@@ -25,19 +26,38 @@ use crate::{
     states::{Session, SharedAppState, new_shared_app_state},
 };
 
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct SocketConnectInfo {
+    pub(crate) local_addr: Option<SocketAddr>,
+    pub(crate) remote_addr: Option<SocketAddr>,
+}
+
+impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
+    fn connect_info(target: IncomingStream<'_, TcpListener>) -> Self {
+        let io = target.io();
+        let local_addr = io.local_addr().ok();
+        let remote_addr = io.peer_addr().ok();
+        SocketConnectInfo {
+            local_addr,
+            remote_addr,
+        }
+    }
+}
+
 pub(crate) async fn main(apikey: String) -> Result<()> {
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 8080);
-    info!("Server listening on {}", addr);
 
     let app: SharedAppState = new_shared_app_state();
-    axum::serve(
+    let serve = axum::serve(
         TcpListener::bind(addr).await?,
         Router::new()
             .route("/ws", get(handle_ws).head(async || StatusCode::OK))
             .nest("/api", build_api(app.clone(), apikey))
-            .with_state(app.clone()),
-    )
-    .await?;
+            .with_state(app.clone())
+            .into_make_service_with_connect_info::<SocketConnectInfo>(),
+    );
+    info!("Server started on {}", serve.local_addr()?);
+    serve.await?;
     Ok(())
 }
 
@@ -48,12 +68,14 @@ struct WsParams {
 
 async fn handle_ws(
     State(app): State<SharedAppState>,
+    ConnectInfo(socket_info): ConnectInfo<SocketConnectInfo>,
     params: Query<WsParams>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
+    info!("WebSocket connection with {:?}", socket_info);
     let id = params.host_id.clone();
     ws.on_upgrade(async move |socket| {
-        if let Err(e) = handle_socket(socket, id.clone(), app.clone()).await {
+        if let Err(e) = handle_socket(socket, id.clone(), socket_info, app.clone()).await {
             error!(
                 "Failed to handle WebSocket connection for host {}: {}",
                 id, e
@@ -65,12 +87,21 @@ async fn handle_ws(
 }
 
 // Function to handle the WebSocket connection
-async fn handle_socket(mut ws: WebSocket, id: String, app: SharedAppState) -> Result<()> {
+async fn handle_socket(
+    mut ws: WebSocket,
+    id: String,
+    socket_info: SocketConnectInfo,
+    app: SharedAppState,
+) -> Result<()> {
     info!("WebSocket connection for id: {}", id);
     let session = app
         .resume_session(&id)
         .await
         .ok_or(anyhow::anyhow!("Failed to obtain session for id: {}", id))?;
+
+    let mut lock = session.extra.lock().await;
+    lock.socket_info = Some(socket_info);
+    drop(lock);
 
     loop {
         select! {

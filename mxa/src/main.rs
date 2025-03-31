@@ -1,3 +1,4 @@
+use anyhow::{Result, anyhow};
 use discovery::discover_controller;
 use log::{LevelFilter, error, info, warn};
 
@@ -7,7 +8,7 @@ mod net;
 mod utils;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     simple_logger::SimpleLogger::new()
         .with_level(LevelFilter::Info)
         .with_utc_timestamps()
@@ -42,7 +43,7 @@ async fn main() {
             };
             if controllers.is_empty() {
                 warn!("No controller discovered");
-                "ws://controller.local:8080/ws".to_string()
+                return Err(anyhow!("Failed to discover controller"));
             } else {
                 controllers[0].clone()
             }

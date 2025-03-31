@@ -7,14 +7,13 @@ use axum::{
     routing::{get, post},
 };
 use common::messages::{
-    CommandExecutionRequest, ControllerRequest, ControllerRequestPayload, FileTransferRequest,
-    PROTOCOL_VERSION,
+    AgentResponse, CommandExecutionRequest, ControllerRequest,
+    ControllerRequestPayload, FileTransferRequest, PROTOCOL_VERSION,
 };
 use log::error;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
-use crate::states::{SharedAppState, TaskState};
+use crate::states::{ExtraInfo, SharedAppState, TaskState};
 
 const ERR_REASON_SESSION_NOT_FOUND: &str = "SESSION_NOT_FOUND";
 const ERR_REASON_TASK_NOT_FOUND: &str = "TASK_NOT_FOUND";
@@ -30,6 +29,7 @@ pub(crate) fn build_api(app: SharedAppState, apikey: String) -> Router<SharedApp
     Router::new()
         .with_state(app.clone())
         .route("/list", get(get_list))
+        .route("/info", get(get_info))
         .route("/result", get(get_result))
         .route("/exec", post(post_exec))
         .route("/file", post(post_file))
@@ -56,9 +56,46 @@ struct GetListResponse {
     sessions: Vec<String>,
 }
 
-async fn get_list(State(app): State<SharedAppState>) -> impl IntoResponse {
+async fn get_list(State(app): State<SharedAppState>) -> Json<GetListResponse> {
     let sessions = app.list_sessions().await;
     Json(GetListResponse { sessions })
+}
+
+#[derive(Deserialize)]
+struct GetInfoParams {
+    host: String,
+}
+
+#[derive(Serialize)]
+struct GetInfoResponse {
+    ok: bool,
+    host: String,
+    info: Option<ExtraInfo>,
+}
+
+async fn get_info(
+    State(app): State<SharedAppState>,
+    params: Query<GetInfoParams>,
+) -> (StatusCode, Json<GetInfoResponse>) {
+    if let Some(info) = app.get_extra_info(&params.host).await {
+        (
+            StatusCode::OK,
+            Json(GetInfoResponse {
+                ok: true,
+                host: params.host.clone(),
+                info: Some(info),
+            }),
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(GetInfoResponse {
+                ok: false,
+                host: params.host.clone(),
+                info: None,
+            }),
+        )
+    }
 }
 
 #[derive(Deserialize)]
@@ -67,62 +104,81 @@ struct GetResultParams {
     task_id: u64,
 }
 
+#[derive(Serialize)]
+struct GetResultResponse {
+    ok: bool,
+    payload: Option<AgentResponse>,
+    reason: Option<String>,
+}
+
 async fn get_result(
     State(app): State<SharedAppState>,
     params: Query<GetResultParams>,
-) -> impl IntoResponse {
+) -> (StatusCode, Json<GetResultResponse>) {
     if let Some(state) = app.get_resp(&params.host, params.task_id).await {
         if let Some(state) = state {
             if let TaskState::Finished(resp) = state {
                 (
                     StatusCode::OK,
-                    Json(json!({
-                        "ok": resp.ok,
-                        "payload": resp.payload
-                    })),
+                    Json(GetResultResponse {
+                        ok: true,
+                        payload: Some(resp),
+                        reason: None,
+                    }),
                 )
             } else {
                 (
                     StatusCode::NOT_FOUND,
-                    Json(json!({
-                        "ok": false,
-                        "reason": ERR_REASON_TASK_NOT_COMPLETED
-                    })),
+                    Json(GetResultResponse {
+                        ok: false,
+                        payload: None,
+                        reason: Some(ERR_REASON_TASK_NOT_COMPLETED.to_string()),
+                    }),
                 )
             }
         } else {
             (
                 StatusCode::NOT_FOUND,
-                Json(json!({
-                    "ok": false,
-                    "reason": ERR_REASON_TASK_NOT_FOUND
-                })),
+                Json(GetResultResponse {
+                    ok: false,
+                    payload: None,
+                    reason: Some(ERR_REASON_TASK_NOT_FOUND.to_string()),
+                }),
             )
         }
     } else {
         (
             StatusCode::NOT_FOUND,
-            Json(json!({
-                "ok": false,
-                "reason": ERR_REASON_SESSION_NOT_FOUND
-            })),
+            Json(GetResultResponse {
+                ok: false,
+                payload: None,
+                reason: Some(ERR_REASON_SESSION_NOT_FOUND.to_string()),
+            }),
         )
     }
+}
+
+#[derive(Serialize)]
+struct SendReqResponse {
+    ok: bool,
+    task_id: Option<u64>,
+    reason: Option<String>,
 }
 
 async fn send_req_helper(
     app: SharedAppState,
     host: String,
     req: ControllerRequest,
-) -> impl IntoResponse {
+) -> (StatusCode, Json<SendReqResponse>) {
     if let Some(r) = app.send_req(&host, req).await {
         match r {
             Ok(req_id) => (
                 StatusCode::OK,
-                Json(json!({
-                    "ok": true,
-                    "task_id": req_id
-                })),
+                Json(SendReqResponse {
+                    ok: true,
+                    task_id: Some(req_id),
+                    reason: None,
+                }),
             ),
             Err(e) => {
                 error!(
@@ -131,20 +187,22 @@ async fn send_req_helper(
                 );
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "ok": false,
-                        "reason": ERR_REASON_INTERNAL_ERROR
-                    })),
+                    Json(SendReqResponse {
+                        ok: false,
+                        task_id: None,
+                        reason: Some(ERR_REASON_INTERNAL_ERROR.to_string()),
+                    }),
                 )
             }
         }
     } else {
         (
             StatusCode::NOT_FOUND,
-            Json(json!({
-                "ok": false,
-                "reason": ERR_REASON_SESSION_NOT_FOUND
-            })),
+            Json(SendReqResponse {
+                ok: false,
+                task_id: None,
+                reason: Some(ERR_REASON_SESSION_NOT_FOUND.to_string()),
+            }),
         )
     }
 }
@@ -158,7 +216,7 @@ struct PostExecRequest {
 async fn post_exec(
     State(app): State<SharedAppState>,
     Json(params): Json<PostExecRequest>,
-) -> impl IntoResponse {
+) -> (StatusCode, Json<SendReqResponse>) {
     send_req_helper(
         app,
         params.host,
@@ -191,7 +249,7 @@ struct PostFileRequest {
 async fn post_file(
     State(app): State<SharedAppState>,
     Json(params): Json<PostFileRequest>,
-) -> impl IntoResponse {
+) -> (StatusCode, Json<SendReqResponse>) {
     send_req_helper(
         app,
         params.host,

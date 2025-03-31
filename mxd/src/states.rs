@@ -2,14 +2,22 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use common::messages::{AgentResponse, ControllerMessage, ControllerRequest};
 use log::debug;
+use serde::Serialize;
 use tokio::sync::{
     Mutex,
     mpsc::{self, Receiver, Sender, error::SendError},
 };
 
+use crate::server::SocketConnectInfo;
+
 pub(crate) enum TaskState {
     Pending,
     Finished(AgentResponse),
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub(crate) struct ExtraInfo {
+    pub(crate) socket_info: Option<SocketConnectInfo>
 }
 
 pub(crate) struct Session {
@@ -17,6 +25,15 @@ pub(crate) struct Session {
     tx: Sender<ControllerMessage>,
     rx: Mutex<Receiver<ControllerMessage>>,
     tasks: Mutex<BTreeMap<u64, TaskState>>,
+    pub(crate) extra: Mutex<ExtraInfo>,
+}
+
+impl ExtraInfo {
+    pub(crate) fn new() -> Self {
+        ExtraInfo {
+            socket_info: None,
+        }
+    }
 }
 
 impl Session {
@@ -27,6 +44,7 @@ impl Session {
             tx,
             rx: Mutex::new(rx),
             tasks: Mutex::new(BTreeMap::new()),
+            extra: Mutex::new(ExtraInfo::new())
         }
     }
 
@@ -67,8 +85,7 @@ impl Session {
             match task {
                 TaskState::Pending => Some(TaskState::Pending),
                 TaskState::Finished(_) => {
-                    let task = guard.remove(&id);
-                    task
+                    guard.remove(&id)
                 }
             }
         } else {
@@ -101,8 +118,16 @@ impl AppState {
     }
 
     pub(crate) async fn list_sessions(&self) -> Vec<String> {
-        let guard = self.sessions.lock().await;
-        guard.keys().cloned().collect()
+        self.sessions.lock().await.keys().cloned().collect()
+    }
+
+    pub(crate) async fn get_extra_info(&self, id: &str) -> Option<ExtraInfo> {
+        if let Some(session) = self.find_session(id).await {
+            let guard = session.extra.lock().await;
+            Some(guard.clone())
+        } else {
+            None
+        }
     }
 
     async fn find_session(&self, id: &str) -> Option<Arc<Session>> {
