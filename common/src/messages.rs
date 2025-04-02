@@ -96,6 +96,7 @@ impl FromStr for ControllerMessage {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for ControllerMessage {
     fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
@@ -110,6 +111,7 @@ impl FromStr for AgentMessage {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for AgentMessage {
     fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
@@ -123,6 +125,7 @@ pub struct ConnectHandshake {
     pub system_info: SystemInfo,
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for ConnectHandshake {
     fn to_string(&self) -> String {
         general_purpose::URL_SAFE_NO_PAD

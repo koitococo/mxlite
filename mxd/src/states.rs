@@ -1,6 +1,12 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{clone::Clone, sync::Arc};
 
-use common::{messages::{AgentResponse, ControllerMessage, ControllerRequest}, system_info::SystemInfo};
+use anyhow::{Result, anyhow};
+use common::{
+    messages::{AgentResponse, ControllerMessage, ControllerRequest},
+    state::{AtomticStateStorage, StateStorage as _},
+    system_info::SystemInfo,
+    utils::sha1_for_file,
+};
 use log::debug;
 use serde::Serialize;
 use tokio::sync::{
@@ -10,6 +16,7 @@ use tokio::sync::{
 
 use crate::server::SocketConnectInfo;
 
+#[derive(Clone)]
 pub(crate) enum TaskState {
     Pending,
     Finished(AgentResponse),
@@ -21,14 +28,6 @@ pub(crate) struct ExtraInfo {
     pub(crate) system_info: Option<SystemInfo>,
 }
 
-pub(crate) struct Session {
-    id: String,
-    tx: Sender<ControllerMessage>,
-    rx: Mutex<Receiver<ControllerMessage>>,
-    tasks: Mutex<BTreeMap<u64, TaskState>>,
-    pub(crate) extra: Mutex<ExtraInfo>,
-}
-
 impl ExtraInfo {
     pub(crate) fn new() -> Self {
         ExtraInfo {
@@ -38,15 +37,23 @@ impl ExtraInfo {
     }
 }
 
-impl Session {
+pub(crate) struct HostSession {
+    id: String,
+    tx: Sender<ControllerMessage>,
+    rx: Mutex<Receiver<ControllerMessage>>,
+    tasks: AtomticStateStorage<u64, TaskState>,
+    pub(crate) extra: Mutex<ExtraInfo>,
+}
+
+impl HostSession {
     pub(crate) fn new(id: String) -> Self {
         let (tx, rx) = mpsc::channel(32);
-        Session {
+        HostSession {
             id,
             tx,
             rx: Mutex::new(rx),
-            tasks: Mutex::new(BTreeMap::new()),
-            extra: Mutex::new(ExtraInfo::new())
+            tasks: AtomticStateStorage::new(),
+            extra: Mutex::new(ExtraInfo::new()),
         }
     }
 
@@ -62,69 +69,59 @@ impl Session {
     }
 
     pub(crate) async fn new_task(&self) -> u64 {
-        let mut guard = self.tasks.lock().await;
         loop {
-            let id: u64 = rand::random();
-            let id = id >> 16;
-            if !guard.contains_key(&id) {
-                guard.insert(id, TaskState::Pending);
+            let id: u64 = rand::random::<u64>() >> 16;
+            if self.tasks.add(id, TaskState::Pending).await {
                 return id;
             }
         }
     }
 
     pub(crate) async fn set_task_finished(&self, id: u64, resp: AgentResponse) {
-        let mut guard = self.tasks.lock().await;
-        if let Some(task) = guard.get_mut(&id) {
-            *task = TaskState::Finished(resp);
-        }
+        self.tasks.set(id, TaskState::Finished(resp)).await;
     }
 
-    pub(crate) async fn get_task_state(&self, id: u64) -> Option<TaskState> {
-        let mut guard = self.tasks.lock().await;
-        let r = guard.get(&id);
-        if let Some(task) = r {
-            match task {
-                TaskState::Pending => Some(TaskState::Pending),
-                TaskState::Finished(_) => {
-                    guard.remove(&id)
-                }
-            }
-        } else {
-            None
-        }
+    pub(crate) async fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> {
+        self.tasks.get(&id).await
     }
 }
 
+pub(crate) struct FileMap {
+    file_path: String,
+}
+
 pub(crate) struct AppState {
-    sessions: Mutex<BTreeMap<String, Arc<Session>>>,
+    host_session: AtomticStateStorage<String, HostSession>,
+    file_map: AtomticStateStorage<String, FileMap>,
 }
 
 impl AppState {
     pub(crate) fn new() -> Self {
         AppState {
-            sessions: Mutex::new(BTreeMap::new()),
+            host_session: AtomticStateStorage::new(),
+            file_map: AtomticStateStorage::new(),
         }
     }
 
-    pub(crate) async fn resume_session(&self, id: &str) -> Option<Arc<Session>> {
-        let mut guard = self.sessions.lock().await;
-        if !guard.contains_key(id) {
-            guard.insert(id.to_string(), Arc::new(Session::new(id.to_string())));
+    pub(crate) async fn resume_session(&self, id: &String) -> Option<Arc<HostSession>> {
+        if !self.host_session.has(id).await {
+            self.host_session
+                .set(id.to_string(), HostSession::new(id.to_string()))
+                .await;
         }
-        guard.get(id).cloned()
+        self.host_session.get(id).await
     }
 
-    pub(crate) async fn remove_session(&self, id: &str) {
-        self.sessions.lock().await.remove(id);
+    pub(crate) async fn remove_session(&self, id: &String) {
+        self.host_session.del(id).await;
     }
 
     pub(crate) async fn list_sessions(&self) -> Vec<String> {
-        self.sessions.lock().await.keys().cloned().collect()
+        self.host_session.list().await
     }
 
-    pub(crate) async fn get_extra_info(&self, id: &str) -> Option<ExtraInfo> {
-        if let Some(session) = self.find_session(id).await {
+    pub(crate) async fn get_extra_info(&self, id: &String) -> Option<ExtraInfo> {
+        if let Some(session) = self.host_session.get(id).await {
             let guard = session.extra.lock().await;
             Some(guard.clone())
         } else {
@@ -132,17 +129,12 @@ impl AppState {
         }
     }
 
-    async fn find_session(&self, id: &str) -> Option<Arc<Session>> {
-        let guard = self.sessions.lock().await;
-        guard.get(id).cloned()
-    }
-
     pub(crate) async fn send_req(
         &self,
-        id: &str,
+        id: &String,
         mut req: ControllerRequest,
     ) -> Option<Result<u64, SendError<ControllerMessage>>> {
-        if let Some(session) = self.find_session(id).await {
+        if let Some(session) = self.host_session.get(id).await {
             debug!("Sending request to session: {}", session.id);
             let task_id = session.new_task().await;
             req.id = task_id;
@@ -156,12 +148,41 @@ impl AppState {
         }
     }
 
-    pub(crate) async fn get_resp(&self, id: &str, task_id: u64) -> Option<Option<TaskState>> {
-        if let Some(session) = self.find_session(id).await {
-            Some(session.get_task_state(task_id).await)
+    pub(crate) async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>> {
+        if let Some(session) = self.host_session.get(id).await {
+            Some(
+                session
+                    .get_task_state(task_id)
+                    .await
+                    .map(|task| task.as_ref().clone()),
+            )
         } else {
             None
         }
+    }
+
+    pub(crate) async fn add_file(&self, file: String) -> Result<String> {
+        let hash = sha1_for_file(file.as_str()).await?;
+        if self
+            .file_map
+            .add(hash.clone(), FileMap { file_path: file })
+            .await
+        {
+            Ok(hash)
+        } else {
+            Err(anyhow!("File already exists"))
+        }
+    }
+
+    pub(crate) async fn get_file(&self, id: &String) -> Option<String> {
+        self.file_map
+            .get(id)
+            .await
+            .map(|file_map| file_map.file_path.clone())
+    }
+
+    pub(crate) async fn get_all_files(&self) -> Vec<String> {
+        self.file_map.list().await
     }
 }
 

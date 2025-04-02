@@ -7,8 +7,8 @@ use axum::{
     routing::{get, post},
 };
 use common::messages::{
-    AgentResponse, CommandExecutionRequest, ControllerRequest,
-    ControllerRequestPayload, FileTransferRequest, PROTOCOL_VERSION,
+    AgentResponse, CommandExecutionRequest, ControllerRequest, ControllerRequestPayload,
+    FileTransferRequest, PROTOCOL_VERSION,
 };
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -25,7 +25,7 @@ struct ApiState {
     apikey: String,
 }
 
-pub(crate) fn build_api(app: SharedAppState, apikey: String) -> Router<SharedAppState> {
+pub(crate) fn build(app: SharedAppState, apikey: String) -> Router<SharedAppState> {
     Router::new()
         .with_state(app.clone())
         .route("/list", get(get_list))
@@ -33,6 +33,12 @@ pub(crate) fn build_api(app: SharedAppState, apikey: String) -> Router<SharedApp
         .route("/result", get(get_result))
         .route("/exec", post(post_exec))
         .route("/file", post(post_file))
+        .route(
+            "/add_file",
+            post(post_add_file)
+                .get(get_add_file)
+                .delete(delete_add_file),
+        )
         .layer(middleware::from_fn_with_state(
             ApiState {
                 apikey: format!("Bearer {}", apikey),
@@ -267,4 +273,52 @@ async fn post_file(
         },
     )
     .await
+}
+
+#[derive(Deserialize)]
+struct PostAddFileRequest {
+    path: String,
+}
+
+async fn post_add_file(
+    State(app): State<SharedAppState>,
+    Json(params): Json<PostAddFileRequest>,
+) -> (StatusCode, Json<String>) {
+    match app.add_file(params.path).await {
+        Ok(hash) => (StatusCode::OK, Json(hash.clone())),
+        Err(e) => {
+            error!("Failed to add file: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json("Failed to add file".to_string()),
+            )
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct GetAddFileResponse {
+    files: Vec<String>,
+}
+
+async fn get_add_file(State(app): State<SharedAppState>) -> Json<GetAddFileResponse> {
+    Json(GetAddFileResponse {
+        files: app.get_all_files().await,
+    })
+}
+
+#[derive(Deserialize)]
+struct DeleteAddFileRequest {
+    hash: String,
+}
+
+async fn delete_add_file(
+    State(app): State<SharedAppState>,
+    Query(params): Query<DeleteAddFileRequest>,
+) -> StatusCode {
+    if app.get_file(&params.hash).await.is_none() {
+        StatusCode::NOT_FOUND
+    } else {
+        StatusCode::OK
+    }
 }

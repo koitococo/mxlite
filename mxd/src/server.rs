@@ -24,8 +24,8 @@ use tokio::{net::TcpListener, select};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    api::build_api,
-    states::{Session, SharedAppState, new_shared_app_state},
+    api, services,
+    states::{HostSession, SharedAppState, new_shared_app_state},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -47,16 +47,15 @@ impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
 }
 
 pub(crate) async fn main(apikey: String, port: u16) -> Result<()> {
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
-
     let halt_singal = CancellationToken::new();
     let halt_singal2 = halt_singal.clone();
     let app: SharedAppState = new_shared_app_state();
     let serve = axum::serve(
-        TcpListener::bind(addr).await?,
+        TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port)).await?,
         Router::new()
             .route("/ws", get(handle_ws).head(async || StatusCode::OK))
-            .nest("/api", build_api(app.clone(), apikey))
+            .nest("/api", api::build(app.clone(), apikey))
+            .nest("/services", services::build(app.clone()))
             .with_state(app.clone())
             .into_make_service_with_connect_info::<SocketConnectInfo>(),
     )
@@ -97,7 +96,9 @@ async fn lifetime_helper(app: SharedAppState, halt_signal: CancellationToken) {
     }
 }
 
-async fn helper_heartbeat(app: SharedAppState) {}
+async fn helper_heartbeat(app: SharedAppState) {
+    let _ = app.list_sessions().await;
+}
 
 async fn handle_ws(
     State(app): State<SharedAppState>,
@@ -121,12 +122,13 @@ async fn handle_ws_inner(
     headers: HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Result<Response> {
-    let params = headers
-        .get(CONNECT_HANDSHAKE_HEADER_KEY)
-        .ok_or(anyhow!("Missing handshake header"))?;
-    let params = params.to_str()?;
-    let params: ConnectHandshake = ConnectHandshake::from_str(params)?;
-    let ws_conn = ws.on_upgrade(async move |socket| {
+    let params: ConnectHandshake = ConnectHandshake::from_str(
+        headers
+            .get(CONNECT_HANDSHAKE_HEADER_KEY)
+            .ok_or(anyhow!("Missing handshake header"))?
+            .to_str()?,
+    )?;
+    Ok(ws.on_upgrade(async move |socket| {
         if let Err(e) = handle_socket(socket, params.clone(), socket_info, app.clone()).await {
             error!(
                 "Failed to handle WebSocket connection for host {}: {}",
@@ -135,8 +137,7 @@ async fn handle_ws_inner(
         } else {
             info!("WebSocket connection closed for id: {}", params.host_id);
         }
-    });
-    Ok(ws_conn)
+    }))
 }
 
 // Function to handle the WebSocket connection
@@ -181,11 +182,11 @@ async fn handle_socket(
         }
     }
 
-    app.remove_session(params.host_id.as_str()).await; // usually it should remove the closing session
+    app.remove_session(&params.host_id).await; // usually it should remove the closing session
     Ok(())
 }
 
-async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<Session>) -> Result<bool> {
+async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result<bool> {
     let msg = ws.recv().await;
     if let Some(msg) = msg {
         let msg = msg?;
@@ -205,7 +206,7 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<Session>) -> Result<boo
     }
 }
 
-async fn handle_msg(msg: AgentMessage, session: Arc<Session>) -> Result<()> {
+async fn handle_msg(msg: AgentMessage, session: Arc<HostSession>) -> Result<()> {
     debug!("Received message: {:?}", msg);
     if let Some(response) = msg.response {
         session.set_task_finished(response.id, response).await;

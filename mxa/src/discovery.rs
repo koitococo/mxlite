@@ -65,6 +65,7 @@ pub async fn discover_controller() -> Result<Vec<String>> {
     };
     let req_str = req.to_string();
     let req_bin = req_str.as_bytes();
+    #[allow(clippy::never_loop)]
     loop {
         trace!("Sending discovery request: {}", req_str);
         socket.send_to(req_bin, get_multicast_addr()).await?;

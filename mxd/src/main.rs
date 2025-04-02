@@ -7,6 +7,7 @@ mod api;
 mod discovery;
 mod server;
 mod states;
+mod services;
 
 #[tokio::main]
 async fn main() -> Result<()> {

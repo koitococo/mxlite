@@ -29,6 +29,7 @@ impl FromStr for DiscoveryResponse {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for DiscoveryResponse {
     fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
@@ -43,6 +44,7 @@ impl FromStr for DiscoveryRequest {
     }
 }
 
+#[allow(clippy::to_string_trait_impl)]
 impl ToString for DiscoveryRequest {
     fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap()
