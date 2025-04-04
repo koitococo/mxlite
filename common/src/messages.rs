@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::system_info::SystemInfo;
 
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CommandExecutionRequest {
@@ -71,6 +71,13 @@ pub struct AgentResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ControllerEvent {
+    pub id: u64,
+    pub event: String,
+    pub data: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AgentEvent {
     pub id: u64,
     pub event: String,
@@ -80,6 +87,7 @@ pub struct AgentEvent {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ControllerMessage {
     pub request: ControllerRequest,
+    pub events: Option<Vec<ControllerEvent>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -122,6 +130,7 @@ impl ToString for AgentMessage {
 pub struct ConnectHandshake {
     pub version: u32,
     pub host_id: String,
+    pub controller_url: String,
     pub system_info: SystemInfo,
 }
 

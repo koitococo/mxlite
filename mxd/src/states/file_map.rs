@@ -47,9 +47,9 @@ impl FileMapStorage {
         Ok(())
     }
 
-    pub(crate) async fn get_file_map(&self, publish_name: &String) -> Option<FileMap> {
-        self.0.get(publish_name).await.map(|f| (*f).clone())
-    }
+    // pub(crate) async fn get_file_map(&self, publish_name: &String) -> Option<FileMap> {
+    //     self.0.get(publish_name).await.map(|f| (*f).clone())
+    // }
 
     pub(crate) async fn get_all_files(&self) -> Vec<String> {
         self.0.list().await

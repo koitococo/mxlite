@@ -1,10 +1,5 @@
 use axum::{
-    Json, Router,
-    body::Body,
-    extract::{Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::get,
+    body::Body, extract::{Query, State}, http::{HeaderValue, StatusCode}, response::{IntoResponse, Response}, routing::get, Json, Router
 };
 use serde::Deserialize;
 use tokio::fs::File;
@@ -16,7 +11,7 @@ use axum::extract::Path;
 pub(crate) fn build(app: SharedAppState) -> Router<SharedAppState> {
     Router::new()
         .with_state(app.clone())
-        .route("/file/{name}", get(get_file))
+        .route("/file/{name}", get(get_file).head(head_file))
 }
 
 #[derive(Deserialize)]
@@ -77,5 +72,33 @@ async fn get_file(
         }
     } else {
         (StatusCode::NOT_FOUND, Json("File not found")).into_response()
+    }
+}
+
+async fn head_file(
+    State(app): State<SharedAppState>,
+    Path(name): Path<String>,
+    Query(params): Query<GetFileParams>,
+) -> Response {
+    let map = app
+        .file_map
+        .get_file_with_optional_props(
+            &name,
+            params.xxh3.unwrap_or(false),
+            params.sha1.unwrap_or(false),
+        )
+        .await;
+    if let Some(file_map) = map {
+        let mut response = StatusCode::NO_CONTENT.into_response();
+        let headers = response.headers_mut();
+        if let Some(xxh3) = file_map.xxh3 {
+            headers.append("X-Hash-Xxh3", xxh3.parse().unwrap_or(HeaderValue::from_static("")));
+        }
+        if let Some(sha1) = file_map.sha1 {
+            headers.append("X-Hash-Sha1", sha1.parse().unwrap_or(HeaderValue::from_static("")));
+        }
+        response
+    } else {
+        StatusCode::NOT_FOUND.into_response()
     }
 }

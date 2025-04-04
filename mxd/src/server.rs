@@ -159,6 +159,7 @@ async fn handle_socket(
 
     let mut lock = session.extra.lock().await;
     lock.socket_info = Some(socket_info);
+    lock.controller_url = Some(params.controller_url);
     lock.system_info = Some(params.system_info);
     drop(lock);
 

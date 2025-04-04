@@ -13,7 +13,6 @@ use tokio::sync::{
     mpsc::{self, Receiver, Sender, error::SendError},
 };
 
-
 use crate::server::SocketConnectInfo;
 
 #[derive(Clone)]
@@ -25,6 +24,7 @@ pub(crate) enum TaskState {
 #[derive(Serialize, Debug, Clone)]
 pub(crate) struct ExtraInfo {
     pub(crate) socket_info: Option<SocketConnectInfo>,
+    pub(crate) controller_url: Option<String>,
     pub(crate) system_info: Option<SystemInfo>,
 }
 
@@ -32,6 +32,7 @@ impl ExtraInfo {
     pub(crate) fn new() -> Self {
         ExtraInfo {
             socket_info: None,
+            controller_url: None,
             system_info: None,
         }
     }
@@ -61,7 +62,12 @@ impl HostSession {
         &self,
         req: ControllerRequest,
     ) -> Result<(), SendError<ControllerMessage>> {
-        self.tx.send(ControllerMessage { request: req }).await
+        self.tx
+            .send(ControllerMessage {
+                request: req,
+                events: None,
+            })
+            .await
     }
 
     pub(crate) async fn recv_req(&self) -> Option<ControllerMessage> {
@@ -89,7 +95,7 @@ impl HostSession {
 pub(crate) struct HostSessionStorage(AtomticStateStorage<String, HostSession>);
 
 impl HostSessionStorage {
-    pub(crate)  fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self(AtomticStateStorage::new())
     }
 

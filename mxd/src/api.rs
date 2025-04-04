@@ -10,6 +10,7 @@ use common::messages::{
     AgentResponse, CommandExecutionRequest, ControllerRequest, ControllerRequestPayload,
     FileTransferRequest, PROTOCOL_VERSION,
 };
+use futures_util::future::join_all;
 use log::error;
 use serde::{Deserialize, Serialize};
 
@@ -32,15 +33,16 @@ pub(crate) fn build(app: SharedAppState, apikey: String) -> Router<SharedAppStat
     Router::new()
         .with_state(app.clone())
         .route("/list", get(get_list))
+        .route("/list-info", get(get_list_info))
         .route("/info", get(get_info))
         .route("/result", get(get_result))
         .route("/exec", post(post_exec))
         .route("/file", post(post_file))
         .route(
-            "/add_file",
-            post(post_add_file)
-                .get(get_add_file)
-                .delete(delete_add_file),
+            "/file-map",
+            post(post_file_map)
+                .get(get_file_map)
+                .delete(delete_file_map),
         )
         .layer(middleware::from_fn_with_state(
             ApiState {
@@ -62,12 +64,40 @@ pub(crate) fn build(app: SharedAppState, apikey: String) -> Router<SharedAppStat
 
 #[derive(Serialize)]
 struct GetListResponse {
+    ok: bool,
     sessions: Vec<String>,
 }
 
 async fn get_list(State(app): State<SharedAppState>) -> Json<GetListResponse> {
     let sessions = app.host_session.list_sessions().await;
-    Json(GetListResponse { sessions })
+    Json(GetListResponse { ok:true,sessions })
+}
+
+#[derive(Serialize)]
+struct GetListInfoInner {
+    host: String,
+    info: Option<ExtraInfo>,
+}
+
+#[derive(Serialize)]
+struct GetListInfoResponse {
+    ok: bool,
+    hosts: Vec<GetListInfoInner>,
+}
+
+async fn get_list_info(
+    State(app): State<SharedAppState>,
+) -> Json<GetListInfoResponse> {
+    let hosts = join_all(app.host_session.list_sessions().await.iter().map(async |s| {
+        GetListInfoInner {
+            host: s.clone(),
+            info: app.host_session.get_extra_info(s).await,
+        }
+    })).await;
+    Json(GetListInfoResponse {
+        ok:true,
+        hosts
+    })
 }
 
 #[derive(Deserialize)]
@@ -288,7 +318,7 @@ struct PostAddFileRequest {
     publish_name: String,
 }
 
-async fn post_add_file(
+async fn post_file_map(
     State(app): State<SharedAppState>,
     Json(params): Json<PostAddFileRequest>,
 ) -> (StatusCode, Json<String>) {
@@ -311,7 +341,7 @@ struct GetAddFileResponse {
     files: Vec<String>,
 }
 
-async fn get_add_file(State(app): State<SharedAppState>) -> Json<GetAddFileResponse> {
+async fn get_file_map(State(app): State<SharedAppState>) -> Json<GetAddFileResponse> {
     Json(GetAddFileResponse {
         files: app.file_map.get_all_files().await,
     })
@@ -322,7 +352,7 @@ struct DeleteAddFileRequest {
     publish_name: String,
 }
 
-async fn delete_add_file(
+async fn delete_file_map(
     State(app): State<SharedAppState>,
     Query(params): Query<DeleteAddFileRequest>,
 ) -> StatusCode {

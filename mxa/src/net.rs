@@ -76,6 +76,7 @@ pub(crate) async fn handle_ws_url(ws_url: String, host_id: String) -> Result<()>
             CONNECT_HANDSHAKE_HEADER_KEY,
             (ConnectHandshake {
                 version: common::messages::PROTOCOL_VERSION,
+                controller_url: ws_url.clone(),
                 host_id: host_id.clone(),
                 system_info: SystemInfo::collect_info(),
             })
@@ -93,6 +94,7 @@ pub(crate) async fn handle_ws_url(ws_url: String, host_id: String) -> Result<()>
             .await
             {
                 Ok((ws, _)) => {
+                    info!("Connected to controller");
                     handle_conn(ws).await?;
                     break;
                 }
