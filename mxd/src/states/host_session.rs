@@ -1,11 +1,10 @@
 use std::{clone::Clone, sync::Arc};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use common::{
     messages::{AgentResponse, ControllerMessage, ControllerRequest},
     state::{AtomticStateStorage, StateStorage as _},
     system_info::SystemInfo,
-    utils::sha1_for_file,
 };
 use log::debug;
 use serde::Serialize;
@@ -13,6 +12,7 @@ use tokio::sync::{
     Mutex,
     mpsc::{self, Receiver, Sender, error::SendError},
 };
+
 
 use crate::server::SocketConnectInfo;
 
@@ -86,42 +86,32 @@ impl HostSession {
     }
 }
 
-pub(crate) struct FileMap {
-    file_path: String,
-}
+pub(crate) struct HostSessionStorage(AtomticStateStorage<String, HostSession>);
 
-pub(crate) struct AppState {
-    host_session: AtomticStateStorage<String, HostSession>,
-    file_map: AtomticStateStorage<String, FileMap>,
-}
-
-impl AppState {
-    pub(crate) fn new() -> Self {
-        AppState {
-            host_session: AtomticStateStorage::new(),
-            file_map: AtomticStateStorage::new(),
-        }
+impl HostSessionStorage {
+    pub(crate)  fn new() -> Self {
+        Self(AtomticStateStorage::new())
     }
 
     pub(crate) async fn resume_session(&self, id: &String) -> Option<Arc<HostSession>> {
-        if !self.host_session.has(id).await {
-            self.host_session
+        if !self.0.has(id).await {
+            self.0
                 .set(id.to_string(), HostSession::new(id.to_string()))
                 .await;
         }
-        self.host_session.get(id).await
+        self.0.get(id).await
     }
 
     pub(crate) async fn remove_session(&self, id: &String) {
-        self.host_session.del(id).await;
+        self.0.remove(id).await;
     }
 
     pub(crate) async fn list_sessions(&self) -> Vec<String> {
-        self.host_session.list().await
+        self.0.list().await
     }
 
     pub(crate) async fn get_extra_info(&self, id: &String) -> Option<ExtraInfo> {
-        if let Some(session) = self.host_session.get(id).await {
+        if let Some(session) = self.0.get(id).await {
             let guard = session.extra.lock().await;
             Some(guard.clone())
         } else {
@@ -134,7 +124,7 @@ impl AppState {
         id: &String,
         mut req: ControllerRequest,
     ) -> Option<Result<u64, SendError<ControllerMessage>>> {
-        if let Some(session) = self.host_session.get(id).await {
+        if let Some(session) = self.0.get(id).await {
             debug!("Sending request to session: {}", session.id);
             let task_id = session.new_task().await;
             req.id = task_id;
@@ -149,7 +139,7 @@ impl AppState {
     }
 
     pub(crate) async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>> {
-        if let Some(session) = self.host_session.get(id).await {
+        if let Some(session) = self.0.get(id).await {
             Some(
                 session
                     .get_task_state(task_id)
@@ -160,33 +150,4 @@ impl AppState {
             None
         }
     }
-
-    pub(crate) async fn add_file(&self, file: String) -> Result<String> {
-        let hash = sha1_for_file(file.as_str()).await?;
-        if self
-            .file_map
-            .add(hash.clone(), FileMap { file_path: file })
-            .await
-        {
-            Ok(hash)
-        } else {
-            Err(anyhow!("File already exists"))
-        }
-    }
-
-    pub(crate) async fn get_file(&self, id: &String) -> Option<String> {
-        self.file_map
-            .get(id)
-            .await
-            .map(|file_map| file_map.file_path.clone())
-    }
-
-    pub(crate) async fn get_all_files(&self) -> Vec<String> {
-        self.file_map.list().await
-    }
-}
-
-pub(crate) type SharedAppState = Arc<AppState>;
-pub(crate) fn new_shared_app_state() -> SharedAppState {
-    Arc::new(AppState::new())
 }

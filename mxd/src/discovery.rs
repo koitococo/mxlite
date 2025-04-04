@@ -8,7 +8,7 @@ use log::{error, info, trace, warn};
 use tokio::{net::UdpSocket, select, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
-fn get_ws_urls() -> Result<Vec<String>> {
+fn get_ws_urls(port: u16) -> Result<Vec<String>> {
     let urls = if_addrs::get_if_addrs()?
         .iter()
         .filter_map(|if_| {
@@ -17,7 +17,7 @@ fn get_ws_urls() -> Result<Vec<String>> {
             }
             let ip = if_.ip();
             if ip.is_ipv4() {
-                Some(format!("ws://{}:8080/ws", ip))
+                Some(format!("ws://{}:{}/ws", ip, port))
             } else {
                 None
             }
@@ -26,7 +26,7 @@ fn get_ws_urls() -> Result<Vec<String>> {
     Ok(urls)
 }
 
-async fn recv_pack(socket: &UdpSocket) -> Result<()> {
+async fn recv_pack(socket: &UdpSocket, port: u16) -> Result<()> {
     let mut buf = [0u8; 1024];
     trace!("Waiting for discovery request");
     match socket.recv_from(&mut buf).await {
@@ -41,7 +41,7 @@ async fn recv_pack(socket: &UdpSocket) -> Result<()> {
             if req.magic == MAGIC_REQUEST {
                 let resp = DiscoveryResponse {
                     magic: MAGIC_RESPONSE.to_string(),
-                    ws: get_ws_urls()?,
+                    ws: get_ws_urls(port)?,
                 };
                 let resp_str = resp.to_string();
                 socket.send_to(resp_str.as_bytes(), addr).await?;
@@ -58,7 +58,7 @@ async fn recv_pack(socket: &UdpSocket) -> Result<()> {
     }
 }
 
-pub fn serve() -> (JoinHandle<()>, CancellationToken) {
+pub fn serve(port: u16) -> (JoinHandle<()>, CancellationToken) {
     info!("Setting up discovery service");
     let token = CancellationToken::new();
     let token_ = token.clone();
@@ -74,7 +74,7 @@ pub fn serve() -> (JoinHandle<()>, CancellationToken) {
                         info!("Discovery service stopping");
                         break;
                     }
-                    r = recv_pack(&socket) => {
+                    r = recv_pack(&socket, port) => {
                         if let Err(err) = r {
                             error!("Failed to handle discovery message: {}", err);
                         }

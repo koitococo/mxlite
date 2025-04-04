@@ -7,7 +7,7 @@ mod api;
 mod discovery;
 mod server;
 mod states;
-mod services;
+mod file_service;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -28,7 +28,7 @@ async fn main() -> Result<()> {
         .parse::<u16>()
         .unwrap_or(8080);
 
-    let (join, cancel) = discovery::serve();
+    let (join, cancel) = discovery::serve(port);
     if let Err(e) = server::main(apikey, port).await {
         log::error!("Failed to start server: {}", e);
     }

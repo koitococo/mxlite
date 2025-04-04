@@ -24,8 +24,8 @@ use tokio::{net::TcpListener, select};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    api, services,
-    states::{HostSession, SharedAppState, new_shared_app_state},
+    api, file_service,
+    states::{SharedAppState, host_session::HostSession, new_shared_app_state},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -55,7 +55,7 @@ pub(crate) async fn main(apikey: String, port: u16) -> Result<()> {
         Router::new()
             .route("/ws", get(handle_ws).head(async || StatusCode::OK))
             .nest("/api", api::build(app.clone(), apikey))
-            .nest("/services", services::build(app.clone()))
+            .nest("/services", file_service::build(app.clone()))
             .with_state(app.clone())
             .into_make_service_with_connect_info::<SocketConnectInfo>(),
     )
@@ -97,7 +97,7 @@ async fn lifetime_helper(app: SharedAppState, halt_signal: CancellationToken) {
 }
 
 async fn helper_heartbeat(app: SharedAppState) {
-    let _ = app.list_sessions().await;
+    let _ = app.host_session.list_sessions().await;
 }
 
 async fn handle_ws(
@@ -149,6 +149,7 @@ async fn handle_socket(
 ) -> Result<()> {
     info!("WebSocket connection for id: {}", params.host_id);
     let session = app
+        .host_session
         .resume_session(&params.host_id)
         .await
         .ok_or(anyhow::anyhow!(
@@ -182,7 +183,7 @@ async fn handle_socket(
         }
     }
 
-    app.remove_session(&params.host_id).await; // usually it should remove the closing session
+    app.host_session.remove_session(&params.host_id).await; // usually it should remove the closing session
     Ok(())
 }
 

@@ -13,7 +13,10 @@ use common::messages::{
 use log::error;
 use serde::{Deserialize, Serialize};
 
-use crate::states::{ExtraInfo, SharedAppState, TaskState};
+use crate::states::{
+    SharedAppState,
+    host_session::{ExtraInfo, TaskState},
+};
 
 const ERR_REASON_SESSION_NOT_FOUND: &str = "SESSION_NOT_FOUND";
 const ERR_REASON_TASK_NOT_FOUND: &str = "TASK_NOT_FOUND";
@@ -63,7 +66,7 @@ struct GetListResponse {
 }
 
 async fn get_list(State(app): State<SharedAppState>) -> Json<GetListResponse> {
-    let sessions = app.list_sessions().await;
+    let sessions = app.host_session.list_sessions().await;
     Json(GetListResponse { sessions })
 }
 
@@ -83,7 +86,7 @@ async fn get_info(
     State(app): State<SharedAppState>,
     params: Query<GetInfoParams>,
 ) -> (StatusCode, Json<GetInfoResponse>) {
-    if let Some(info) = app.get_extra_info(&params.host).await {
+    if let Some(info) = app.host_session.get_extra_info(&params.host).await {
         (
             StatusCode::OK,
             Json(GetInfoResponse {
@@ -121,7 +124,11 @@ async fn get_result(
     State(app): State<SharedAppState>,
     params: Query<GetResultParams>,
 ) -> (StatusCode, Json<GetResultResponse>) {
-    if let Some(state) = app.get_resp(&params.host, params.task_id).await {
+    if let Some(state) = app
+        .host_session
+        .get_resp(&params.host, params.task_id)
+        .await
+    {
         if let Some(state) = state {
             if let TaskState::Finished(resp) = state {
                 (
@@ -176,7 +183,7 @@ async fn send_req_helper(
     host: String,
     req: ControllerRequest,
 ) -> (StatusCode, Json<SendReqResponse>) {
-    if let Some(r) = app.send_req(&host, req).await {
+    if let Some(r) = app.host_session.send_req(&host, req).await {
         match r {
             Ok(req_id) => (
                 StatusCode::OK,
@@ -278,21 +285,24 @@ async fn post_file(
 #[derive(Deserialize)]
 struct PostAddFileRequest {
     path: String,
+    publish_name: String,
 }
 
 async fn post_add_file(
     State(app): State<SharedAppState>,
     Json(params): Json<PostAddFileRequest>,
 ) -> (StatusCode, Json<String>) {
-    match app.add_file(params.path).await {
-        Ok(hash) => (StatusCode::OK, Json(hash.clone())),
-        Err(e) => {
-            error!("Failed to add file: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json("Failed to add file".to_string()),
-            )
-        }
+    if let Err(e) = app
+        .file_map
+        .add_file_map(params.path, params.publish_name)
+        .await
+    {
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(e))
+    } else {
+        (
+            StatusCode::OK,
+            Json("File map added successfully".to_string()),
+        )
     }
 }
 
@@ -303,22 +313,19 @@ struct GetAddFileResponse {
 
 async fn get_add_file(State(app): State<SharedAppState>) -> Json<GetAddFileResponse> {
     Json(GetAddFileResponse {
-        files: app.get_all_files().await,
+        files: app.file_map.get_all_files().await,
     })
 }
 
 #[derive(Deserialize)]
 struct DeleteAddFileRequest {
-    hash: String,
+    publish_name: String,
 }
 
 async fn delete_add_file(
     State(app): State<SharedAppState>,
     Query(params): Query<DeleteAddFileRequest>,
 ) -> StatusCode {
-    if app.get_file(&params.hash).await.is_none() {
-        StatusCode::NOT_FOUND
-    } else {
-        StatusCode::OK
-    }
+    app.file_map.del_file_map(&params.publish_name).await;
+    StatusCode::OK
 }
