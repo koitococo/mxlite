@@ -8,7 +8,6 @@ use common::{
 use std::{str::FromStr, sync::Arc};
 use tokio::{net::TcpStream, sync::Mutex};
 
-use crate::executor::handle_event;
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use log::{debug, error, info, trace, warn};
@@ -19,6 +18,8 @@ use tokio_tungstenite::{
         protocol::{Message, WebSocketConfig},
     },
 };
+
+use crate::executor::handle_event;
 
 #[derive(Debug, Clone)]
 struct RespondHandler {

@@ -52,20 +52,23 @@ impl SystemInfo {
             total_memory: sysinfo_.total_memory(),
             name: System::name(),
             kernel_version: System::kernel_version(),
-            cpus: sysinfo_.cpus().iter().fold(Vec::with_capacity(4), |mut list, item| {
-                for added in &mut list {
-                    if added.vendor_id == item.vendor_id() && added.brand == item.brand() {
-                        added.names.push(item.name().to_string());
-                        return list;
+            cpus: sysinfo_
+                .cpus()
+                .iter()
+                .fold(Vec::with_capacity(4), |mut list, item| {
+                    for added in &mut list {
+                        if added.vendor_id == item.vendor_id() && added.brand == item.brand() {
+                            added.names.push(item.name().to_string());
+                            return list;
+                        }
                     }
-                }
-                list.push(CpuInfo {
-                    names: vec![item.name().to_string()],
-                    vendor_id: item.vendor_id().to_string(),
-                    brand: item.brand().to_string(),
-                });
-                list
-            }),
+                    list.push(CpuInfo {
+                        names: vec![item.name().to_string()],
+                        vendor_id: item.vendor_id().to_string(),
+                        brand: item.brand().to_string(),
+                    });
+                    list
+                }),
             disks: Disks::new_with_refreshed_list()
                 .iter()
                 .map(|disk| DiskInfo {

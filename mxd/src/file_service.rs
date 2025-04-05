@@ -1,5 +1,10 @@
 use axum::{
-    body::Body, extract::{Query, State}, http::{HeaderValue, StatusCode}, response::{IntoResponse, Response}, routing::get, Json, Router
+    Json, Router,
+    body::Body,
+    extract::{Query, State},
+    http::{HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
+    routing::get,
 };
 use serde::Deserialize;
 use tokio::fs::File;
@@ -100,10 +105,16 @@ async fn head_file(
         let mut response = StatusCode::NO_CONTENT.into_response();
         let headers = response.headers_mut();
         if let Some(xxh3) = file_map.xxh3 {
-            headers.append("X-Hash-Xxh3", xxh3.parse().unwrap_or(HeaderValue::from_static("")));
+            headers.append(
+                "X-Hash-Xxh3",
+                xxh3.parse().unwrap_or(HeaderValue::from_static("")),
+            );
         }
         if let Some(sha1) = file_map.sha1 {
-            headers.append("X-Hash-Sha1", sha1.parse().unwrap_or(HeaderValue::from_static("")));
+            headers.append(
+                "X-Hash-Sha1",
+                sha1.parse().unwrap_or(HeaderValue::from_static("")),
+            );
         }
         response
     } else {

@@ -1,5 +1,5 @@
-pub(crate) mod host_session;
 pub(crate) mod file_map;
+pub(crate) mod host_session;
 
 use std::sync::Arc;
 
@@ -10,7 +10,6 @@ pub(crate) struct AppState {
     pub(crate) host_session: HostSessionStorage,
     pub(crate) file_map: FileMapStorage,
 }
-
 
 impl AppState {
     pub(crate) fn new() -> Self {

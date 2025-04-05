@@ -55,7 +55,7 @@ pub(crate) fn build(app: SharedAppState, apikey: Option<String>) -> Router<Share
                             return (StatusCode::FORBIDDEN).into_response();
                         }
                     } else {
-                        return (StatusCode::UNAUTHORIZED).into_response()
+                        return (StatusCode::UNAUTHORIZED).into_response();
                     }
                 }
                 next.run(request).await
@@ -255,6 +255,7 @@ async fn send_req_helper(
 struct PostExecRequest {
     host: String,
     cmd: String,
+    use_script: Option<bool>,
 }
 
 async fn post_exec(
@@ -269,6 +270,7 @@ async fn post_exec(
             id: 0,
             payload: ControllerRequestPayload::CommandExecutionRequest(CommandExecutionRequest {
                 command: params.cmd,
+                use_script_file: params.use_script.unwrap_or(false),
             }),
         },
     )

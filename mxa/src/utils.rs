@@ -3,11 +3,7 @@ use std::{hash::Hasher, io::Read, process::Stdio};
 use anyhow::Result;
 use futures_util::StreamExt;
 use log::{error, info};
-use tokio::{
-    fs::File,
-    io::AsyncWriteExt,
-    process::Command,
-};
+use tokio::{fs::File, io::AsyncWriteExt, process::Command};
 use xxhash_rust::xxh3::Xxh3;
 
 /// Get the machine UUID from the DMI table.
@@ -66,10 +62,7 @@ pub(crate) async fn upload_file(url: &str, path: &str) -> Result<()> {
 }
 
 /// Execute an external command and return its output.
-pub(crate) async fn execute_command_with_output(
-    cmd: &String,
-    args: Vec<String>,
-) -> Result<(i32, String, String)> {
+async fn execute_command(cmd: &String, args: Vec<String>) -> Result<(i32, String, String)> {
     info!("Executing external command: {} {:?}", cmd, args);
     let child = Command::new(cmd)
         .args(args)
@@ -85,6 +78,22 @@ pub(crate) async fn execute_command_with_output(
     ))
 }
 
-pub(crate) async fn execute_shell_with_output(cmd: &String) -> Result<(i32, String, String)> {
-    execute_command_with_output(&("sh".to_string()), vec!["-c".to_string(), cmd.to_string()]).await
+async fn execute_script(cmd: &String) -> Result<(i32, String, String)> {
+    info!("Executing script: {}", cmd);
+    const TMP_SCRIPT_PATH: &str = "/tmp/mxa-script.sh";
+    let mut file = File::create(TMP_SCRIPT_PATH).await?;
+    file.write_all(cmd.as_bytes()).await?;
+    file.flush().await?;
+    execute_command(&("sh".to_string()), vec![TMP_SCRIPT_PATH.to_string()]).await
+}
+
+pub(crate) async fn execute_shell(
+    cmd: &String,
+    use_script_file: bool,
+) -> Result<(i32, String, String)> {
+    if use_script_file {
+        execute_script(cmd).await
+    } else {
+        execute_command(&("sh".to_string()), vec!["-c".to_string(), cmd.to_string()]).await
+    }
 }

@@ -11,6 +11,7 @@ pub const PROTOCOL_VERSION: u32 = 3;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CommandExecutionRequest {
     pub command: String,
+    pub use_script_file: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
