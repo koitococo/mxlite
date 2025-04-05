@@ -1,7 +1,4 @@
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +48,4 @@ impl ToString for DiscoveryRequest {
     }
 }
 
-pub fn get_multicast_addr() -> SocketAddr {
-    SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), 11451)
-}
+pub const DISCOVERY_PORT: u16 = 11451;

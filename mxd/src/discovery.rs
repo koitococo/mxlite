@@ -1,8 +1,11 @@
-use std::str::FromStr;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
+};
 
 use anyhow::Result;
 use common::discovery::{
-    DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE, get_multicast_addr,
+    DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE,
 };
 use log::{error, info, trace, warn};
 use tokio::{net::UdpSocket, select, task::JoinHandle};
@@ -63,26 +66,37 @@ pub fn serve(port: u16) -> (JoinHandle<()>, CancellationToken) {
     let token = CancellationToken::new();
     let token_ = token.clone();
     let join = tokio::spawn(async move {
-        if let Ok(socket) = UdpSocket::bind(get_multicast_addr()).await {
-            log::info!(
-                "Discovery service started at {}",
-                socket.local_addr().unwrap()
-            );
-            loop {
-                select! {
-                    _ = token_.cancelled() => {
-                        info!("Discovery service stopping");
-                        break;
-                    }
-                    r = recv_pack(&socket, port) => {
-                        if let Err(err) = r {
-                            error!("Failed to handle discovery message: {}", err);
+        match UdpSocket::bind(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            DISCOVERY_PORT,
+        ))
+        .await
+        {
+            Ok(socket) => {
+                log::info!(
+                    "Discovery service started at {}",
+                    socket.local_addr().unwrap()
+                );
+                if let Err(e) = socket.set_broadcast(true) {
+                    error!("Failed to set broadcast: {}", e);
+                }
+                loop {
+                    select! {
+                        _ = token_.cancelled() => {
+                            info!("Discovery service stopping");
+                            break;
+                        }
+                        r = recv_pack(&socket, port) => {
+                            if let Err(err) = r {
+                                error!("Failed to handle discovery message: {}", err);
+                            }
                         }
                     }
                 }
             }
-        } else {
-            error!("Failed to start discovery service");
+            Err(e) => {
+                error!("Failed to start discovery service: {:?}", e);
+            }
         }
     });
     (join, token)
