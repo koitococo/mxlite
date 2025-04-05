@@ -46,7 +46,7 @@ impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
     }
 }
 
-pub(crate) async fn main(apikey: String, port: u16) -> Result<()> {
+pub(crate) async fn main(apikey: Option<String>, port: u16) -> Result<()> {
     let halt_singal = CancellationToken::new();
     let halt_singal2 = halt_singal.clone();
     let app: SharedAppState = new_shared_app_state();

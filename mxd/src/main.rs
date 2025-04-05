@@ -5,9 +5,9 @@ use log::{LevelFilter, info};
 
 mod api;
 mod discovery;
+mod file_service;
 mod server;
 mod states;
-mod file_service;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,11 +22,11 @@ async fn main() -> Result<()> {
         .init()?;
 
     info!("MetalX Controller - Launching");
-    let apikey = env::var("MXD_APIKEY").unwrap_or("api_key_change_in_prod".to_string());
     let port = env::var("MXD_PORT")
         .unwrap_or("8080".to_string())
         .parse::<u16>()
         .unwrap_or(8080);
+    let apikey = env::var("MXD_APIKEY").ok();
 
     let (join, cancel) = discovery::serve(port);
     if let Err(e) = server::main(apikey, port).await {

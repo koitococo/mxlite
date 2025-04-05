@@ -6,10 +6,13 @@ edition = "2024"
 [dependencies]
 base16ct = "0.2.0"
 base64 = "0.22.1"
+digest = "0.10.7"
 serde = { version = "1.0.206", features = ["derive"] }
 serde_json = "1.0.124"
 sha1 = "0.10.6"
+sha2 = "0.10.8"
+sha3 = "0.10.8"
 sysinfo = { version = "0.34.1", features = ["serde", "linux-netdevs", "linux-tmpfs"] }
 thiserror = "2.0.12"
-tokio = { version = "1.44.1", features = ["fs", "io-util"] }
+tokio = { version = "1.44.1", features = ["fs", "io-util", "sync"] }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }

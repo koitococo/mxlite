@@ -4,13 +4,14 @@ use common::{
     state::{AtomticStateStorage, StateStorage as _},
     utils::{self},
 };
-use log::error;
 
 #[derive(Debug, Clone)]
 pub(crate) struct FileMap {
     pub(crate) file_path: String,
     pub(crate) xxh3: Option<String>,
     pub(crate) sha1: Option<String>,
+    pub(crate) sha256: Option<String>,
+    pub(crate) sha512: Option<String>,
 }
 pub(crate) struct FileMapStorage(AtomticStateStorage<String, FileMap>);
 
@@ -41,6 +42,8 @@ impl FileMapStorage {
                     file_path: new_path,
                     xxh3: None,
                     sha1: None,
+                    sha256: None,
+                    sha512: None,
                 },
             )
             .await;
@@ -64,6 +67,8 @@ impl FileMapStorage {
         publish_name: &String,
         ensure_xxh3: bool,
         ensure_sha1: bool,
+        ensure_sha256: bool,
+        ensure_sha512: bool,
     ) -> Option<FileMap> {
         if self
             .0
@@ -71,22 +76,32 @@ impl FileMapStorage {
                 let file_map: &FileMap = file_map;
                 let mut new_inner: FileMap = file_map.clone();
                 if ensure_xxh3 && new_inner.xxh3.is_none() {
-                    new_inner.xxh3 = Some(match utils::xxh3_for_file(&new_inner.file_path).await {
-                        Ok(hash) => hash,
-                        Err(e) => {
-                            error!("Failed to calculate xxh3: {}", e);
-                            return None;
-                        }
-                    });
+                    if let Ok(hash) = utils::xxh3_for_file(&new_inner.file_path).await {
+                        new_inner.xxh3 = Some(hash);
+                    }
                 }
-                if ensure_sha1 && new_inner.sha1.is_none() {
-                    new_inner.sha1 = Some(match utils::sha1_for_file(&new_inner.file_path).await {
-                        Ok(hash) => hash,
-                        Err(e) => {
-                            error!("Failed to calculate sha1: {}", e);
-                            return None;
+                if ensure_sha1 || ensure_sha256 || ensure_sha512 {
+                    let calc_sha1 = ensure_sha1 && new_inner.sha1.is_none();
+                    let calc_sha256 = ensure_sha256 && new_inner.sha256.is_none();
+                    let calc_sha512 = ensure_sha512 && new_inner.sha512.is_none();
+                    if let Ok((sha1, sha256, sha512)) = utils::sha_for_file(
+                        &new_inner.file_path,
+                        calc_sha1,
+                        calc_sha256,
+                        calc_sha512,
+                    )
+                    .await
+                    {
+                        if calc_sha1 {
+                            new_inner.sha1 = sha1;
                         }
-                    });
+                        if calc_sha256 {
+                            new_inner.sha256 = sha256;
+                        }
+                        if calc_sha512 {
+                            new_inner.sha512 = sha512;
+                        }
+                    }
                 }
                 Some(new_inner)
             })

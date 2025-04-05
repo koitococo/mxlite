@@ -18,6 +18,8 @@ pub(crate) fn build(app: SharedAppState) -> Router<SharedAppState> {
 struct GetFileParams {
     xxh3: Option<bool>,
     sha1: Option<bool>,
+    sha256: Option<bool>,
+    sha512: Option<bool>,
 }
 
 async fn get_file(
@@ -31,31 +33,35 @@ async fn get_file(
             &name,
             params.xxh3.unwrap_or(false),
             params.sha1.unwrap_or(false),
+            params.sha256.unwrap_or(false),
+            params.sha512.unwrap_or(false),
         )
         .await;
     if let Some(file_map) = map {
         let file_path = file_map.file_path.clone();
         let file = File::open(file_path).await;
         if let Ok(file) = file {
-            let builder = Response::builder()
+            let mut builder = Response::builder()
                 .header("Content-Type", "application/octet-stream")
                 .header(
                     "Content-Disposition",
                     format!("attachment; filename=\"{}\"", name),
                 );
-            let builder = if let Some(xxh3) = file_map.xxh3 {
-                builder.header("X-Hash-Xxh3", xxh3)
-            } else {
-                builder
-            };
-            let builder = if let Some(sha1) = file_map.sha1 {
-                builder.header("X-Hash-Sha1", sha1)
-            } else {
-                builder
-            };
+            if let Some(xxh3) = file_map.xxh3 {
+                builder = builder.header("X-Hash-Xxh3", xxh3);
+            }
+            if let Some(sha1) = file_map.sha1 {
+                builder = builder.header("X-Hash-Sha1", sha1);
+            }
+            if let Some(sha256) = file_map.sha256 {
+                builder = builder.header("X-Hash-Sha256", sha256);
+            }
+            if let Some(sha512) = file_map.sha512 {
+                builder = builder.header("X-Hash-Sha512", sha512);
+            }
             let builder = builder.body(Body::from_stream(ReaderStream::new(file)));
             if let Ok(response) = builder {
-                return response;
+                response
             } else {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -86,6 +92,8 @@ async fn head_file(
             &name,
             params.xxh3.unwrap_or(false),
             params.sha1.unwrap_or(false),
+            params.sha256.unwrap_or(false),
+            params.sha512.unwrap_or(false),
         )
         .await;
     if let Some(file_map) = map {

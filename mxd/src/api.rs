@@ -26,10 +26,10 @@ const ERR_REASON_INTERNAL_ERROR: &str = "INTERNAL_ERROR";
 
 #[derive(Clone)]
 struct ApiState {
-    apikey: String,
+    apikey: Option<String>,
 }
 
-pub(crate) fn build(app: SharedAppState, apikey: String) -> Router<SharedAppState> {
+pub(crate) fn build(app: SharedAppState, apikey: Option<String>) -> Router<SharedAppState> {
     Router::new()
         .with_state(app.clone())
         .route("/list", get(get_list))
@@ -46,18 +46,19 @@ pub(crate) fn build(app: SharedAppState, apikey: String) -> Router<SharedAppStat
         )
         .layer(middleware::from_fn_with_state(
             ApiState {
-                apikey: format!("Bearer {}", apikey),
+                apikey: apikey.map(|sk| format!("Bearer {}", sk)),
             },
             async |State(state): State<ApiState>, request: Request, next: Next| {
-                let headers = request.headers();
-                if let Some(key) = headers.get("Authorization") {
-                    if key != &state.apikey {
-                        return (StatusCode::FORBIDDEN).into_response();
+                if let Some(sk) = state.apikey {
+                    if let Some(key) = request.headers().get("Authorization") {
+                        if key != &sk {
+                            return (StatusCode::FORBIDDEN).into_response();
+                        }
+                    } else {
+                        return (StatusCode::UNAUTHORIZED).into_response()
                     }
-                    next.run(request).await
-                } else {
-                    (StatusCode::UNAUTHORIZED).into_response()
                 }
+                next.run(request).await
             },
         ))
 }
@@ -70,7 +71,7 @@ struct GetListResponse {
 
 async fn get_list(State(app): State<SharedAppState>) -> Json<GetListResponse> {
     let sessions = app.host_session.list_sessions().await;
-    Json(GetListResponse { ok:true,sessions })
+    Json(GetListResponse { ok: true, sessions })
 }
 
 #[derive(Serialize)]
@@ -85,19 +86,19 @@ struct GetListInfoResponse {
     hosts: Vec<GetListInfoInner>,
 }
 
-async fn get_list_info(
-    State(app): State<SharedAppState>,
-) -> Json<GetListInfoResponse> {
-    let hosts = join_all(app.host_session.list_sessions().await.iter().map(async |s| {
-        GetListInfoInner {
-            host: s.clone(),
-            info: app.host_session.get_extra_info(s).await,
-        }
-    })).await;
-    Json(GetListInfoResponse {
-        ok:true,
-        hosts
-    })
+async fn get_list_info(State(app): State<SharedAppState>) -> Json<GetListInfoResponse> {
+    let hosts = join_all(
+        app.host_session
+            .list_sessions()
+            .await
+            .iter()
+            .map(async |s| GetListInfoInner {
+                host: s.clone(),
+                info: app.host_session.get_extra_info(s).await,
+            }),
+    )
+    .await;
+    Json(GetListInfoResponse { ok: true, hosts })
 }
 
 #[derive(Deserialize)]
