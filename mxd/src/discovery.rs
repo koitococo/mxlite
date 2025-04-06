@@ -77,9 +77,6 @@ pub fn serve(port: u16) -> (JoinHandle<()>, CancellationToken) {
                     "Discovery service started at {}",
                     socket.local_addr().unwrap()
                 );
-                if let Err(e) = socket.set_broadcast(true) {
-                    error!("Failed to set broadcast: {}", e);
-                }
                 loop {
                     select! {
                         _ = token_.cancelled() => {

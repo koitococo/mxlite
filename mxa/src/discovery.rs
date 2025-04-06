@@ -12,29 +12,27 @@ use std::time::Duration;
 use tokio::{net::UdpSocket, select};
 
 pub async fn discover_controller() -> Result<Vec<String>> {
-    info!("Discovering controller");
-    // Bind to any available port
-    let socket = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await?;
-    socket.set_broadcast(true)?;
-
-    let req = &DiscoveryRequest {
-        magic: MAGIC_REQUEST.to_string(),
-        revision: PROTOCOL_REV,
-    };
-    let req_str = req.to_string();
-    let req_bin = req_str.as_bytes();
-    #[allow(clippy::never_loop)]
     loop {
-        trace!("Sending discovery request: {}", req_str);
-        socket
-            .send_to(
-                req_bin,
-                SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT),
-            )
-            .await?;
-        loop {
+        info!("Discovering controller");
+        let socket = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await?;
+        socket.set_broadcast(true)?;
+
+        let req = &DiscoveryRequest {
+            magic: MAGIC_REQUEST.to_string(),
+            revision: PROTOCOL_REV,
+        };
+        let req_str = req.to_string();
+        let req_bin = req_str.as_bytes();
+        for _ in 0..10 {
+            trace!("Sending discovery request: {}", req_str);
+            socket
+                .send_to(
+                    req_bin,
+                    SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT),
+                )
+                .await?;
             select! {
-                _ = tokio::time::sleep(Duration::from_secs(15)) => {
+                _ = tokio::time::sleep(Duration::from_secs(3)) => {
                     info!("Discovery timeout");
                 }
                 r = recv_pack(&socket) => {
@@ -44,6 +42,7 @@ pub async fn discover_controller() -> Result<Vec<String>> {
                 }
             }
         }
+        warn!("No controller found");
     }
 }
 

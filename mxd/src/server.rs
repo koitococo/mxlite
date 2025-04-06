@@ -22,10 +22,11 @@ use log::{debug, error, info, trace, warn};
 use serde::Serialize;
 use tokio::{net::TcpListener, select};
 use tokio_util::sync::CancellationToken;
+use tower_http::services::ServeDir;
 
 use crate::{
     api, file_service,
-    states::{SharedAppState, host_session::HostSession, new_shared_app_state},
+    states::{host_session::HostSession, new_shared_app_state, SharedAppState}, Cli,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -46,16 +47,17 @@ impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
     }
 }
 
-pub(crate) async fn main(apikey: Option<String>, port: u16) -> Result<()> {
+pub(crate) async fn main(config: Cli) -> Result<()> {
     let halt_singal = CancellationToken::new();
     let halt_singal2 = halt_singal.clone();
     let app: SharedAppState = new_shared_app_state();
     let serve = axum::serve(
-        TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port)).await?,
+        TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.port)).await?,
         Router::new()
             .route("/ws", get(handle_ws).head(async || StatusCode::OK))
-            .nest("/api", api::build(app.clone(), apikey))
+            .nest("/api", api::build(app.clone(), config.apikey))
             .nest("/services", file_service::build(app.clone()))
+            .nest_service("/static", ServeDir::new(config.static_path))
             .with_state(app.clone())
             .into_make_service_with_connect_info::<SocketConnectInfo>(),
     )
