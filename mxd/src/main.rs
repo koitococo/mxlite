@@ -34,12 +34,10 @@ async fn main() -> Result<()> {
     simple_logger::SimpleLogger::new()
         .with_level(if cfg!(debug_assertions) {
             LevelFilter::Trace
+        } else if config.verbose {
+            LevelFilter::Debug
         } else {
-            if config.verbose {
-                LevelFilter::Debug
-            } else {
-                LevelFilter::Info
-            }
+            LevelFilter::Info
         })
         .with_utc_timestamps()
         .env()

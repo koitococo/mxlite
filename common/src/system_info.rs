@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use sysinfo::{Disks, Networks, System};
 
+use crate::lsblk::BlkInfo;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CpuInfo {
     pub names: Vec<String>,
@@ -9,7 +11,7 @@ pub struct CpuInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiskInfo {
+pub struct MntInfo {
     pub kind: String,
     pub device_name: String,
     pub file_system: String,
@@ -39,8 +41,9 @@ pub struct SystemInfo {
     pub name: Option<String>,
     pub kernel_version: Option<String>,
     pub cpus: Vec<CpuInfo>,
-    pub disks: Vec<DiskInfo>,
+    pub mnts: Vec<MntInfo>,
     pub nics: Vec<NicInfo>,
+    pub blks: Vec<BlkInfo>
 }
 
 impl SystemInfo {
@@ -69,9 +72,9 @@ impl SystemInfo {
                     });
                     list
                 }),
-            disks: Disks::new_with_refreshed_list()
+            mnts: Disks::new_with_refreshed_list()
                 .iter()
-                .map(|disk| DiskInfo {
+                .map(|disk| MntInfo {
                     kind: disk.kind().to_string(),
                     device_name: disk.name().to_str().unwrap_or_default().to_string(),
                     file_system: disk.file_system().to_str().unwrap_or_default().to_string(),
@@ -97,6 +100,7 @@ impl SystemInfo {
                         .collect(),
                 })
                 .collect(),
+            blks: crate::lsblk::get_blk_info(),
         }
     }
 }
