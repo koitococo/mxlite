@@ -35,6 +35,7 @@ pub(crate) fn build(app: SharedAppState, apikey: Option<String>) -> Router<Share
         .route("/list", get(get_list))
         .route("/list-info", get(get_list_info))
         .route("/info", get(get_info))
+        .route("/all-tasks", get(get_all_tasks))
         .route("/result", get(get_result))
         .route("/exec", post(post_exec))
         .route("/file", post(post_file))
@@ -200,6 +201,14 @@ async fn get_result(
             }),
         )
     }
+}
+
+async fn get_all_tasks(
+    State(app): State<SharedAppState>,
+    params: Query<GetInfoParams>,
+) -> Json<Vec<u64>> {
+    let tasks = app.host_session.list_all_tasks(&params.host).await;
+    Json(tasks)
 }
 
 #[derive(Serialize)]
