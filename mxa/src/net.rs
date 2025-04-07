@@ -1,7 +1,10 @@
 use common::{
-    messages::{
-        AgentMessage, AgentResponse, AgentResponsePayload, CONNECT_HANDSHAKE_HEADER_KEY,
-        ConnectHandshake, ControllerMessage, ControllerRequest,
+    protocol::{
+        controller::{
+            AgentMessage, AgentResponse, AgentResponsePayload, ControllerMessage,
+            ControllerRequest, PROTOCOL_VERSION,
+        },
+        handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
     },
     system_info::SystemInfo,
 };
@@ -46,7 +49,7 @@ pub(crate) struct Context {
 }
 
 impl Context {
-    pub(crate) async fn respond2(&self, ok: bool, payload: AgentResponsePayload) {
+    pub(crate) async fn respond(&self, ok: bool, payload: AgentResponsePayload) {
         if let Err(e) = self
             .responder
             .clone()
@@ -76,7 +79,7 @@ pub(crate) async fn handle_ws_url(ws_url: String, host_id: String) -> Result<()>
         req.headers_mut().insert(
             CONNECT_HANDSHAKE_HEADER_KEY,
             (ConnectHandshake {
-                version: common::messages::PROTOCOL_VERSION,
+                version: PROTOCOL_VERSION,
                 controller_url: ws_url.clone(),
                 host_id: host_id.clone(),
                 system_info: SystemInfo::collect_info(),

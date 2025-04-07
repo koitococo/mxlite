@@ -17,7 +17,10 @@ use axum::{
     routing::get,
     serve::IncomingStream,
 };
-use common::messages::{AgentMessage, CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake};
+use common::protocol::{
+    controller::AgentMessage,
+    handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+};
 use log::{debug, error, info, trace, warn};
 use serde::Serialize;
 use tokio::{net::TcpListener, select};

@@ -1,5 +1,5 @@
 use axum::{Json, extract::State, http::StatusCode};
-use common::messages::{
+use common::protocol::controller::{
     CommandExecutionRequest, ControllerRequest, ControllerRequestPayload, PROTOCOL_VERSION,
 };
 use serde::Deserialize;

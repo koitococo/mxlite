@@ -1,6 +1,6 @@
 use axum::{Json, extract::State, http::StatusCode};
-use common::messages::{
-    ControllerRequest, ControllerRequestPayload, FileTransferRequest, PROTOCOL_VERSION,
+use common::protocol::controller::{
+    self, ControllerRequest, ControllerRequestPayload, FileTransferRequest, PROTOCOL_VERSION,
 };
 use serde::Deserialize;
 
@@ -37,8 +37,8 @@ pub(super) async fn post(
                 url: params.url,
                 path: params.path,
                 operation: match params.op {
-                    FileOperation::Download => common::messages::FileOperation::Download,
-                    FileOperation::Upload => common::messages::FileOperation::Upload,
+                    FileOperation::Download => controller::FileOperation::Download,
+                    FileOperation::Upload => controller::FileOperation::Upload,
                 },
             }),
         },

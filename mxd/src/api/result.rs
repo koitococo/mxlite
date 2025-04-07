@@ -3,7 +3,7 @@ use axum::{
     extract::{Query, State},
     http::StatusCode,
 };
-use common::messages::AgentResponse;
+use common::protocol::controller::AgentResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::states::{SharedAppState, host_session::TaskState};

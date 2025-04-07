@@ -6,10 +6,12 @@ use cmd_task::ExecuteTask;
 use file_task::FileTask;
 
 use crate::net::Context;
-use common::messages::{ControllerRequest, ControllerRequestPayload};
+use common::protocol::controller::{
+    AgentResponsePayload, ControllerRequest, ControllerRequestPayload,
+};
 
 trait TaskHandler {
-    async fn handle(self, ctx: Context) -> Result<()>;
+    fn handle(self) -> impl Future<Output = Result<(bool, AgentResponsePayload)>>;
 }
 
 enum Task {
@@ -29,14 +31,16 @@ impl From<&ControllerRequest> for Task {
 }
 
 impl TaskHandler for Task {
-    async fn handle(self, ctx: Context) -> Result<()> {
+    async fn handle(self) -> Result<(bool, AgentResponsePayload)> {
         match self {
-            Task::File(task) => task.handle(ctx).await,
-            Task::Cmd(task) => task.handle(ctx).await,
+            Task::File(task) => task.handle().await,
+            Task::Cmd(task) => task.handle().await,
         }
     }
 }
 
 pub(crate) async fn handle_event(ctx: Context) -> Result<()> {
-    Task::from(&ctx.request).handle(ctx).await
+    let result = Task::from(&ctx.request).handle().await?;
+    ctx.respond(result.0, result.1).await;
+    Ok(())
 }

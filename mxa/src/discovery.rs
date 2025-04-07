@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow};
-use common::discovery::{
+use common::protocol::discovery::{
     DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE,
     PROTOCOL_REV,
 };

@@ -15,7 +15,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use common::messages::ControllerRequest;
+use common::protocol::controller::ControllerRequest;
 use log::error;
 use serde::Serialize;
 

@@ -2,7 +2,7 @@ use std::{clone::Clone, sync::Arc};
 
 use anyhow::Result;
 use common::{
-    messages::{AgentResponse, ControllerMessage, ControllerRequest},
+    protocol::controller::{AgentResponse, ControllerMessage, ControllerRequest},
     state::{AtomticStateStorage, StateStorage as _},
     system_info::SystemInfo,
 };
@@ -158,7 +158,7 @@ impl HostSessionStorage {
     }
 
     pub(crate) async fn list_all_tasks(&self, id: &String) -> Vec<u64> {
-        if let Some(session) = self.0.get(&id).await {
+        if let Some(session) = self.0.get(id).await {
             session.tasks.list().await
         } else {
             vec![]
