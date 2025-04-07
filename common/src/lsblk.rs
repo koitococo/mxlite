@@ -121,7 +121,7 @@ fn create_root_blk_info(blk_name: &str) -> Result<BlkInfo, io::Error> {
         kname: blk_name.to_string(),
         model: read_str_optional(format!("/sys/block/{}/device/model", blk_name).as_str())?,
         size: read_int(format!("/sys/block/{}/size", blk_name).as_str()).map(|sectors| {
-            read_int(format!("/sys/block/{}/queue/physical_block_size", blk_name).as_str())
+            read_int(format!("/sys/block/{}/queue/logical_block_size", blk_name).as_str())
                 .map(|block_size| sectors * block_size)
                 .unwrap_or(sectors * 512)
         })?,
