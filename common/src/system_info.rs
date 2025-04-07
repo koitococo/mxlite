@@ -43,7 +43,7 @@ pub struct SystemInfo {
     pub cpus: Vec<CpuInfo>,
     pub mnts: Vec<MntInfo>,
     pub nics: Vec<NicInfo>,
-    pub blks: Vec<BlkInfo>
+    pub blks: Vec<BlkInfo>,
 }
 
 impl SystemInfo {

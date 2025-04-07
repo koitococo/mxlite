@@ -25,8 +25,8 @@ use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
 
 use crate::{
-    api, file_service,
-    states::{host_session::HostSession, new_shared_app_state, SharedAppState}, Cli,
+    Cli, api, srv,
+    states::{SharedAppState, host_session::HostSession, new_shared_app_state},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -52,11 +52,15 @@ pub(crate) async fn main(config: Cli) -> Result<()> {
     let halt_singal2 = halt_singal.clone();
     let app: SharedAppState = new_shared_app_state();
     let serve = axum::serve(
-        TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.port)).await?,
+        TcpListener::bind(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            config.port,
+        ))
+        .await?,
         Router::new()
             .route("/ws", get(handle_ws).head(async || StatusCode::OK))
             .nest("/api", api::build(app.clone(), config.apikey))
-            .nest("/services", file_service::build(app.clone()))
+            .nest("/srv", srv::file::build(app.clone()))
             .nest_service("/static", ServeDir::new(config.static_path))
             .with_state(app.clone())
             .into_make_service_with_connect_info::<SocketConnectInfo>(),

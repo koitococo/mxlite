@@ -4,8 +4,8 @@ use log::{LevelFilter, info};
 
 mod api;
 mod discovery;
-mod file_service;
 mod server;
+mod srv;
 mod states;
 
 #[derive(Parser)]
