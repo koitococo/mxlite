@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use discovery::discover_controller;
 use log::{LevelFilter, error, info, warn};
+use utils::random_str;
 
 mod discovery;
 mod executor;
@@ -25,15 +26,15 @@ async fn main() -> Result<()> {
         Err(err) => {
             error!("Failed to get machine id: {}", err);
             if cfg!(debug_assertions) {
-                eprintln!(
-                    "[Debug] Failed to get machine id, use 'cafecafecafecafecafecafecafecafe' instead",
-                );
                 "cafecafecafecafecafecafecafecafe".to_string()
             } else {
                 std::process::exit(1);
             }
         }
     };
+    let session_id = random_str(16);
+    info!("Host ID: {}", host_id);
+    info!("Session ID: {}", session_id);
     let ws_url = match std::env::var("MXD_URL") {
         Ok(url) => url,
         Err(_) => {
@@ -52,8 +53,12 @@ async fn main() -> Result<()> {
             }
         }
     };
+    let envs = std::env::vars()
+        .filter(|(k, _)| k.starts_with("MXA_"))
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect::<Vec<_>>();
     loop {
-        if let Err(err) = net::handle_ws_url(ws_url.clone(), host_id.clone()).await {
+        if let Err(err) = net::handle_ws_url(ws_url.clone(), host_id.clone(), session_id.clone(), envs.clone()).await {
             error!("Agent failed: {}", err);
         }
     }
