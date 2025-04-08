@@ -5,6 +5,7 @@ use futures_util::StreamExt;
 use log::{error, info};
 use tokio::{fs::File, io::AsyncWriteExt, process::Command};
 use xxhash_rust::xxh3::Xxh3;
+use rand::Rng;
 
 /// Get the machine UUID from the DMI table.
 pub(crate) fn get_machine_id() -> Result<String> {
@@ -13,6 +14,14 @@ pub(crate) fn get_machine_id() -> Result<String> {
     fd.read_exact(&mut buf)?;
     let buf2: [u8; 16] = buf[8..24].try_into()?;
     Ok(buf2.iter().map(|b| format!("{:02x}", b)).collect())
+}
+
+pub(crate) fn random_str(len: usize) -> String {
+    let mut rng = rand::rng();
+    let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    (0..len)
+        .map(|_| chars.chars().nth(rng.random_range(0..chars.len())).unwrap())
+        .collect()
 }
 
 /// Download a file from the given URL and save it to the given path. Return the xxh3 hash of the file.
