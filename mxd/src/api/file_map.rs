@@ -38,7 +38,7 @@ pub(super) struct GetResponse {
 
 pub(super) async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
     Json(GetResponse {
-        files: app.file_map.get_all_files().await,
+        files: app.file_map.get_all_files(),
     })
 }
 
@@ -51,6 +51,6 @@ pub(super) async fn delete(
     State(app): State<SharedAppState>,
     Query(params): Query<DeleteRequest>,
 ) -> StatusCode {
-    app.file_map.del_file_map(&params.publish_name).await;
+    app.file_map.del_file_map(&params.publish_name);
     StatusCode::OK
 }

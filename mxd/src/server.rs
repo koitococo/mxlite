@@ -166,11 +166,12 @@ async fn handle_socket(
             params.host_id
         ))?;
 
-    let mut lock = session.extra.lock().await;
-    lock.socket_info = Some(socket_info);
-    lock.controller_url = Some(params.controller_url);
-    lock.system_info = Some(params.system_info);
-    drop(lock);
+    {
+        let mut lock = session.extra.lock().await;
+        lock.socket_info = Some(socket_info);
+        lock.controller_url = Some(params.controller_url);
+        lock.system_info = Some(params.system_info);
+    }
 
     loop {
         select! {
@@ -220,7 +221,7 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
 async fn handle_msg(msg: AgentMessage, session: Arc<HostSession>) -> Result<()> {
     debug!("Received message: {:?}", msg);
     if let Some(response) = msg.response {
-        session.set_task_finished(response.id, response).await;
+        session.set_task_finished(response.id, response);
     }
     if let Some(events) = msg.events {
         warn!("Received events: {:?}", events);
