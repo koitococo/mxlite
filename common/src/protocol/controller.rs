@@ -1,5 +1,4 @@
 use std::str::FromStr;
-
 use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u32 = 3;

@@ -10,6 +10,8 @@ use crate::system_info::SystemInfo;
 pub struct ConnectHandshake {
     pub version: u32,
     pub host_id: String,
+    pub session_id: String,
+    pub envs: Vec<String>,
     pub controller_url: String,
     pub system_info: SystemInfo,
 }

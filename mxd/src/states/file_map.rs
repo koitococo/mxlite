@@ -95,7 +95,7 @@ impl FileMapStorage {
                 }
             }
             self.0.set(publish_name.clone(), new_inner.clone());
-            return Some(new_inner);
+            Some(new_inner)
         } else {
             None
         }

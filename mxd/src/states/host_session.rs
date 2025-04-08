@@ -27,6 +27,7 @@ pub(crate) struct ExtraInfo {
     pub(crate) socket_info: Option<SocketConnectInfo>,
     pub(crate) controller_url: Option<String>,
     pub(crate) system_info: Option<SystemInfo>,
+    pub(crate) envs: Option<Vec<String>>,
 }
 
 impl ExtraInfo {
@@ -35,12 +36,14 @@ impl ExtraInfo {
             socket_info: None,
             controller_url: None,
             system_info: None,
+            envs: None,
         }
     }
 }
 
 pub(crate) struct HostSession {
-    id: String,
+    pub(crate) host_id: String,
+    pub(crate) session_id: String,
     tx: Sender<ControllerMessage>,
     rx: Mutex<Receiver<ControllerMessage>>,
     tasks: SimpleMailbox<u64, TaskState>,
@@ -48,10 +51,11 @@ pub(crate) struct HostSession {
 }
 
 impl HostSession {
-    pub(crate) fn new(id: String) -> Self {
+    pub(crate) fn new(host_id: String, session_id: String) -> Self {
         let (tx, rx) = mpsc::channel(32);
         HostSession {
-            id,
+            host_id,
+            session_id,
             tx,
             rx: Mutex::new(rx),
             tasks: SimpleMailbox::new(),
@@ -100,13 +104,16 @@ impl HostSessionStorage {
         Self(AtomticStateStorage::new())
     }
 
-    pub(crate) async fn resume_session(&self, id: &String) -> Option<Arc<HostSession>> {
-        if !self.0.has(id) {
+    pub(crate) async fn resume_session(
+        &self,
+        host_id: &String,
+        session_id: &String,
+    ) -> Option<Arc<HostSession>> {
+        if self.0.has(host_id) {} else {
             self.0
-                .set(id.to_string(), HostSession::new(id.to_string()))
-                ;
+                .set(host_id.to_string(), HostSession::new(host_id.to_string(), session_id.to_string()));
         }
-        self.0.get(id)
+        self.0.get(host_id)
     }
 
     pub(crate) async fn remove_session(&self, id: &String) {
@@ -132,7 +139,7 @@ impl HostSessionStorage {
         mut req: ControllerRequest,
     ) -> Option<Result<u64, SendError<ControllerMessage>>> {
         if let Some(session) = self.0.get(id) {
-            debug!("Sending request to session: {}", session.id);
+            debug!("Sending request to session: {}", session.host_id);
             let task_id = session.new_task();
             req.id = task_id;
             if let Err(e) = session.send_req(req).await {

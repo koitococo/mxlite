@@ -89,7 +89,7 @@ pub(crate) async fn main(config: Cli) -> Result<()> {
     Ok(())
 }
 
-async fn lifetime_helper(app: SharedAppState, halt_signal: CancellationToken) {
+async fn lifetime_helper(_app: SharedAppState, halt_signal: CancellationToken) {
     let cancellation_token = halt_signal.child_token(); // to avoid unused variable warning, maybe used in the future
     loop {
         select! {
@@ -98,16 +98,16 @@ async fn lifetime_helper(app: SharedAppState, halt_signal: CancellationToken) {
                 break;
             }
             _ = tokio::time::sleep(tokio::time::Duration::from_secs(15)) => {
-                trace!("Performing periodic tasks");
-                helper_heartbeat(app.clone()).await;
+                // trace!("Performing periodic tasks");
+                // helper_heartbeat(app.clone()).await;
             }
         }
     }
 }
 
-async fn helper_heartbeat(app: SharedAppState) {
-    let _ = app.host_session.list_sessions().await;
-}
+// async fn helper_heartbeat(app: SharedAppState) {
+//     let _ = app.host_session.list_sessions().await;
+// }
 
 async fn handle_ws(
     State(app): State<SharedAppState>,
@@ -159,18 +159,26 @@ async fn handle_socket(
     info!("WebSocket connection for id: {}", params.host_id);
     let session = app
         .host_session
-        .resume_session(&params.host_id)
+        .resume_session(&params.host_id, &params.session_id)
         .await
         .ok_or(anyhow::anyhow!(
             "Failed to obtain session for id: {}",
             params.host_id
         ))?;
-
+    if session.session_id != params.session_id {
+        error!(
+            "Session ID mismatch: expected {}, got {}",
+            session.session_id, params.session_id
+        );
+        app.host_session.remove_session(&params.host_id).await;
+        return Err(anyhow!("Session ID mismatch"));
+    }
     {
         let mut lock = session.extra.lock().await;
         lock.socket_info = Some(socket_info);
         lock.controller_url = Some(params.controller_url);
         lock.system_info = Some(params.system_info);
+        lock.envs = Some(params.envs);
     }
 
     loop {
@@ -189,6 +197,12 @@ async fn handle_socket(
                     Err(e) => {
                         error!("Failed to handle WebSocket message: {}", e);
                     }
+                }
+            }
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
+                if let Err(e) = ws.send(Message::Ping("ping".into())).await {
+                    error!("Failed to send ping: {}", e);
+                    break;
                 }
             }
         }
