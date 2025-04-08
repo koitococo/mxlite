@@ -21,7 +21,8 @@ use common::protocol::{
     controller::AgentMessage,
     handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
 };
-use log::{debug, error, info, trace, warn};
+use futures_util::SinkExt;
+use log::{debug, error, info, warn};
 use serde::Serialize;
 use tokio::{net::TcpListener, select};
 use tokio_util::sync::CancellationToken;
@@ -51,9 +52,9 @@ impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
 }
 
 pub(crate) async fn main(config: Cli) -> Result<()> {
-    let halt_singal = CancellationToken::new();
-    let halt_singal2 = halt_singal.clone();
-    let app: SharedAppState = new_shared_app_state();
+    let halt_signal = CancellationToken::new();
+    let halt_signal2 = halt_signal.clone();
+    let app: SharedAppState = new_shared_app_state(halt_signal2.child_token());
     let serve = axum::serve(
         TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -70,7 +71,7 @@ pub(crate) async fn main(config: Cli) -> Result<()> {
     )
     .with_graceful_shutdown(async move {
         select! {
-            _ = halt_singal.cancelled() => {
+            _ = halt_signal.cancelled() => {
                 info!("Server shutting down");
             }
             _ = tokio::signal::ctrl_c() => {
@@ -80,11 +81,11 @@ pub(crate) async fn main(config: Cli) -> Result<()> {
     });
     info!("Server started on {}", serve.local_addr()?);
 
-    tokio::spawn(lifetime_helper(app.clone(), halt_singal2.clone()));
+    tokio::spawn(lifetime_helper(app.clone(), halt_signal2.clone()));
     serve.await?;
     info!("Server stopping");
-    halt_singal2.cancel();
-    halt_singal2.cancelled().await;
+    halt_signal2.cancel();
+    halt_signal2.cancelled().await;
     info!("Server stopped");
     Ok(())
 }
@@ -116,7 +117,8 @@ async fn handle_ws(
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     info!("WebSocket connection with {:?}", socket_info);
-    match handle_ws_inner(app, socket_info, headers, ws).await {
+    let ct = (&app).cancel_signal.child_token();
+    match handle_ws_inner(app, socket_info, headers, ws, ct).await {
         Ok(ws) => ws,
         Err(e) => {
             error!("Failed to handle WebSocket connection: {}", e);
@@ -130,6 +132,7 @@ async fn handle_ws_inner(
     socket_info: SocketConnectInfo,
     headers: HeaderMap,
     ws: WebSocketUpgrade,
+    ct: CancellationToken,
 ) -> Result<Response> {
     let params: ConnectHandshake = ConnectHandshake::from_str(
         headers
@@ -138,7 +141,7 @@ async fn handle_ws_inner(
             .to_str()?,
     )?;
     Ok(ws.on_upgrade(async move |socket| {
-        if let Err(e) = handle_socket(socket, params.clone(), socket_info, app.clone()).await {
+        if let Err(e) = handle_socket(socket, params.clone(), socket_info, app.clone(), ct).await {
             error!(
                 "Failed to handle WebSocket connection for host {}: {}",
                 params.host_id, e
@@ -155,6 +158,7 @@ async fn handle_socket(
     params: ConnectHandshake,
     socket_info: SocketConnectInfo,
     app: SharedAppState,
+    ct: CancellationToken,
 ) -> Result<()> {
     info!("WebSocket connection for id: {}", params.host_id);
     let session = app
@@ -183,6 +187,10 @@ async fn handle_socket(
 
     loop {
         select! {
+            _ = ct.cancelled() => {
+                info!("WebSocket connection cancelled for id: {}", params.host_id);
+                break;
+            }
             req = session.recv_req() => {
                 if let Some(req) = req {
                     ws.send(req.to_string().into()).await?;
@@ -209,6 +217,7 @@ async fn handle_socket(
     }
 
     app.host_session.remove_session(&params.host_id).await; // usually it should remove the closing session
+    ws.close().await?;
     Ok(())
 }
 
