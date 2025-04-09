@@ -29,8 +29,8 @@ use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
 
 use crate::{
-    Cli, api, srv,
-    states::{SharedAppState, host_session::HostSession, new_shared_app_state},
+    StartupArguments, api, srv,
+    states::{AppState, SharedAppState, host_session::HostSession},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -51,10 +51,10 @@ impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
     }
 }
 
-pub(crate) async fn main(config: Cli) -> Result<()> {
+pub(crate) async fn main(config: StartupArguments) -> Result<()> {
     let halt_signal = CancellationToken::new();
     let halt_signal2 = halt_signal.clone();
-    let app: SharedAppState = new_shared_app_state(halt_signal2.child_token());
+    let app: SharedAppState = Arc::new(AppState::new(halt_signal.clone(), config.clone()));
     let serve = axum::serve(
         TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::UNSPECIFIED),
@@ -63,8 +63,8 @@ pub(crate) async fn main(config: Cli) -> Result<()> {
         .await?,
         Router::new()
             .route("/ws", get(handle_ws).head(async || StatusCode::OK))
-            .nest("/api", api::build(app.clone(), config.apikey))
-            .nest("/srv", srv::file::build(app.clone()))
+            .nest("/api", api::build(app.clone()))
+            .nest("/srv", srv::build(app.clone()))
             .nest_service("/static", ServeDir::new(config.static_path))
             .with_state(app.clone())
             .into_make_service_with_connect_info::<SocketConnectInfo>(),

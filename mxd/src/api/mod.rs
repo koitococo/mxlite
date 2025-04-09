@@ -31,8 +31,31 @@ struct ApiState {
     apikey: Option<String>,
 }
 
-pub(crate) fn build(app: SharedAppState, apikey: Option<String>) -> Router<SharedAppState> {
-    Router::new()
+pub(crate) fn auth_middleware<T: Clone + Send + Sync + 'static>(
+    router: Router<T>,
+    key: Option<String>,
+) -> Router<T> {
+    router.layer(middleware::from_fn_with_state(
+        ApiState {
+            apikey: key.map(|sk| format!("Bearer {}", sk)),
+        },
+        async |State(state): State<ApiState>, request: Request, next: Next| {
+            if let Some(sk) = state.apikey {
+                if let Some(key) = request.headers().get("Authorization") {
+                    if key != &sk {
+                        return (StatusCode::FORBIDDEN).into_response();
+                    }
+                } else {
+                    return (StatusCode::UNAUTHORIZED).into_response();
+                }
+            }
+            next.run(request).await
+        },
+    ))
+}
+
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
+    let router = Router::new()
         .with_state(app.clone())
         .route("/list", get(list::get))
         .route("/list-info", get(list_info::get))
@@ -46,24 +69,8 @@ pub(crate) fn build(app: SharedAppState, apikey: Option<String>) -> Router<Share
             post(file_map::post)
                 .get(file_map::get)
                 .delete(file_map::delete),
-        )
-        .layer(middleware::from_fn_with_state(
-            ApiState {
-                apikey: apikey.map(|sk| format!("Bearer {}", sk)),
-            },
-            async |State(state): State<ApiState>, request: Request, next: Next| {
-                if let Some(sk) = state.apikey {
-                    if let Some(key) = request.headers().get("Authorization") {
-                        if key != &sk {
-                            return (StatusCode::FORBIDDEN).into_response();
-                        }
-                    } else {
-                        return (StatusCode::UNAUTHORIZED).into_response();
-                    }
-                }
-                next.run(request).await
-            },
-        ))
+        );
+    auth_middleware(router, app.startup_args.apikey.clone())
 }
 
 #[derive(Serialize)]

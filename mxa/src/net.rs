@@ -121,7 +121,7 @@ pub(crate) async fn handle_ws_url(
                 Err(err) => {
                     error!("Failed to connect to controller: {}", err);
                     tokio::time::sleep(std::time::Duration::from_secs(
-                        ((1.5f32).powi(retry) * 3f32 + 5f32) as u64,
+                        ((1.5f32).powi(retry) * 3f32 + 5f32) as u64, // 1.5 ^ retry * 3 + 5
                     ))
                     .await;
                 }

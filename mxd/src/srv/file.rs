@@ -13,10 +13,10 @@ use tokio_util::io::ReaderStream;
 use crate::states::SharedAppState;
 use axum::extract::Path;
 
-pub(crate) fn build(app: SharedAppState) -> Router<SharedAppState> {
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
     Router::new()
         .with_state(app.clone())
-        .route("/file/{name}", get(get_file).head(head_file))
+        .route("/{name}", get(get_file).head(head_file))
 }
 
 #[derive(Deserialize)]
