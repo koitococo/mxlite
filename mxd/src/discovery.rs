@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
-use common::discovery::{
+use common::protocol::discovery::{
     DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE,
 };
 use log::{error, info, trace, warn};

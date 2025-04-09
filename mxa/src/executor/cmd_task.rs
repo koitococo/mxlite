@@ -1,9 +1,10 @@
 use anyhow::Result;
-use log::{trace, warn};
+use log::{debug, warn};
 
-use crate::net::Context;
 use crate::utils::execute_shell;
-use common::messages::{AgentResponsePayload, CommandExecutionRequest, CommandExecutionResponse};
+use common::protocol::controller::{
+    AgentResponsePayload, CommandExecutionRequest, CommandExecutionResponse,
+};
 
 use super::TaskHandler;
 
@@ -13,37 +14,34 @@ pub(super) struct ExecuteTask {
 }
 
 impl TaskHandler for ExecuteTask {
-    async fn handle(self, ctx: Context) -> Result<()> {
+    async fn handle(self) -> Result<(bool, AgentResponsePayload)> {
         match execute_shell(&self.cmd, self.use_script_file).await {
             Ok((code, stdout, stderr)) => {
-                trace!(
+                debug!(
                     "Command '{}' executed with code {}: {} {}",
                     self.cmd, code, stdout, stderr
                 );
-                ctx.respond2(
+                Ok((
                     true,
                     AgentResponsePayload::CommandExecutionResponse(CommandExecutionResponse {
                         code,
                         stdout,
                         stderr,
                     }),
-                )
-                .await;
+                ))
             }
             Err(err) => {
                 warn!("Failed to execute command {}: {}", self.cmd, err);
-                ctx.respond2(
+                Ok((
                     false,
                     AgentResponsePayload::CommandExecutionResponse(CommandExecutionResponse {
                         code: -1,
                         stdout: "".to_string(),
                         stderr: err.to_string(),
                     }),
-                )
-                .await;
+                ))
             }
         }
-        Ok(())
     }
 }
 

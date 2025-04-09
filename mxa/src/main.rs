@@ -35,30 +35,38 @@ async fn main() -> Result<()> {
     let session_id = random_str(16);
     info!("Host ID: {}", host_id);
     info!("Session ID: {}", session_id);
-    let ws_url = match std::env::var("MXD_URL") {
-        Ok(url) => url,
-        Err(_) => {
-            let controllers = match discover_controller().await {
-                Ok(c) => c,
-                Err(err) => {
-                    error!("Failed to discover controller: {}", err);
-                    std::process::exit(1);
-                }
-            };
-            if controllers.is_empty() {
-                warn!("No controller discovered");
-                return Err(anyhow!("Failed to discover controller"));
-            } else {
-                controllers[0].clone()
-            }
-        }
-    };
     let envs = std::env::vars()
         .filter(|(k, _)| k.starts_with("MXA_"))
         .map(|(k, v)| format!("{}={}", k, v))
         .collect::<Vec<_>>();
+
     loop {
-        if let Err(err) = net::handle_ws_url(ws_url.clone(), host_id.clone(), session_id.clone(), envs.clone()).await {
+        let ws_url = match std::env::var("MXD_URL") {
+            Ok(url) => url,
+            Err(_) => {
+                let controllers = match discover_controller().await {
+                    Ok(c) => c,
+                    Err(err) => {
+                        error!("Failed to discover controller: {}", err);
+                        std::process::exit(1);
+                    }
+                };
+                if controllers.is_empty() {
+                    warn!("No controller discovered");
+                    return Err(anyhow!("Failed to discover controller"));
+                } else {
+                    controllers[0].clone()
+                }
+            }
+        };
+        if let Err(err) = net::handle_ws_url(
+            ws_url.clone(),
+            host_id.clone(),
+            session_id.clone(),
+            envs.clone(),
+        )
+        .await
+        {
             error!("Agent failed: {}", err);
         }
     }

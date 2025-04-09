@@ -2,7 +2,8 @@ use std::{clone::Clone, sync::Arc};
 
 use anyhow::Result;
 use common::{
-    messages::{AgentResponse, ControllerMessage, ControllerRequest},
+    mailbox::{Mailbox, SimpleMailbox},
+    protocol::controller::{AgentResponse, ControllerMessage, ControllerRequest},
     state::{AtomticStateStorage, StateStorage as _},
     system_info::SystemInfo,
 };
@@ -45,7 +46,7 @@ pub(crate) struct HostSession {
     pub(crate) session_id: String,
     tx: Sender<ControllerMessage>,
     rx: Mutex<Receiver<ControllerMessage>>,
-    tasks: AtomticStateStorage<u64, TaskState>,
+    tasks: SimpleMailbox<u64, TaskState>,
     pub(crate) extra: Mutex<ExtraInfo>,
 }
 
@@ -57,7 +58,7 @@ impl HostSession {
             session_id,
             tx,
             rx: Mutex::new(rx),
-            tasks: AtomticStateStorage::new(),
+            tasks: SimpleMailbox::new(),
             extra: Mutex::new(ExtraInfo::new()),
         }
     }
@@ -78,21 +79,21 @@ impl HostSession {
         self.rx.lock().await.recv().await
     }
 
-    pub(crate) async fn new_task(&self) -> u64 {
+    pub(crate) fn new_task(&self) -> u64 {
         loop {
             let id: u64 = rand::random::<u64>() >> 16;
-            if self.tasks.add(id, TaskState::Pending).await {
+            if self.tasks.send(id, TaskState::Pending) {
                 return id;
             }
         }
     }
 
-    pub(crate) async fn set_task_finished(&self, id: u64, resp: AgentResponse) {
-        self.tasks.set(id, TaskState::Finished(resp)).await;
+    pub(crate) fn set_task_finished(&self, id: u64, resp: AgentResponse) {
+        self.tasks.send(id, TaskState::Finished(resp));
     }
 
-    pub(crate) async fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> {
-        self.tasks.get(&id).await
+    pub(crate) fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> {
+        self.tasks.receive(&id)
     }
 }
 
@@ -108,24 +109,23 @@ impl HostSessionStorage {
         host_id: &String,
         session_id: &String,
     ) -> Option<Arc<HostSession>> {
-        if self.0.has(host_id).await {} else {
+        if self.0.has(host_id) {} else {
             self.0
-                .set(host_id.to_string(), HostSession::new(host_id.to_string(), session_id.to_string()))
-                .await;
+                .set(host_id.to_string(), HostSession::new(host_id.to_string(), session_id.to_string()));
         }
-        self.0.get(host_id).await
+        self.0.get(host_id)
     }
 
     pub(crate) async fn remove_session(&self, id: &String) {
-        self.0.remove(id).await;
+        self.0.remove(id);
     }
 
     pub(crate) async fn list_sessions(&self) -> Vec<String> {
-        self.0.list().await
+        self.0.list()
     }
 
     pub(crate) async fn get_extra_info(&self, id: &String) -> Option<ExtraInfo> {
-        if let Some(session) = self.0.get(id).await {
+        if let Some(session) = self.0.get(id) {
             let guard = session.extra.lock().await;
             Some(guard.clone())
         } else {
@@ -138,9 +138,9 @@ impl HostSessionStorage {
         id: &String,
         mut req: ControllerRequest,
     ) -> Option<Result<u64, SendError<ControllerMessage>>> {
-        if let Some(session) = self.0.get(id).await {
+        if let Some(session) = self.0.get(id) {
             debug!("Sending request to session: {}", session.host_id);
-            let task_id = session.new_task().await;
+            let task_id = session.new_task();
             req.id = task_id;
             if let Err(e) = session.send_req(req).await {
                 Some(Err(e))
@@ -153,21 +153,16 @@ impl HostSessionStorage {
     }
 
     pub(crate) async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>> {
-        if let Some(session) = self.0.get(id).await {
-            Some(
-                session
-                    .get_task_state(task_id)
-                    .await
-                    .map(|task| task.as_ref().clone()),
-            )
-        } else {
-            None
-        }
+        self.0.get(id).map(|session| {
+            session
+                .get_task_state(task_id)
+                .map(|task| task.as_ref().clone())
+        })
     }
 
     pub(crate) async fn list_all_tasks(&self, id: &String) -> Vec<u64> {
-        if let Some(session) = self.0.get(&id).await {
-            session.tasks.list().await
+        if let Some(session) = self.0.get(id) {
+            session.tasks.list()
         } else {
             vec![]
         }

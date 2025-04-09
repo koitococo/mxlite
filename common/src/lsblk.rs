@@ -64,7 +64,6 @@ fn read_bool(path: &str) -> Result<bool, io::Error> {
 fn read_list(path: &str) -> Result<Vec<String>, io::Error> {
     let contents = read_str(path)?;
     Ok(contents
-        .trim()
         .split_whitespace()
         .map(|s| s.to_string())
         .collect())
@@ -133,16 +132,16 @@ fn create_root_blk_info(blk_name: &str) -> Result<BlkInfo, io::Error> {
         path_by_seq: checked_path(format!("/dev/disk/by-diskseq/{}", disk_seq).as_str()).ok(),
         subsystem: read_symlink(format!("/sys/block/{}/device/subsystem", blk_name).as_str())
             .ok()
-            .and_then(|s| match s.as_str() {
-                "/sys/class/nvme" => Some("nvme".to_string()),
-                "/sys/bus/scsi" => Some("scsi".to_string()),
-                _ => Some("unknown".to_string()),
+            .map(|s| match s.as_str() {
+                "/sys/class/nvme" => "nvme".to_string(),
+                "/sys/bus/scsi" => "scsi".to_string(),
+                _ => "unknown".to_string(),
             }),
     })
 }
 
 fn ls_root_blks() -> Result<Vec<String>, io::Error> {
-    Ok(lsdir("/sys/block")?)
+    lsdir("/sys/block")
 }
 
 pub fn get_blk_info() -> Vec<BlkInfo> {
@@ -152,5 +151,5 @@ pub fn get_blk_info() -> Vec<BlkInfo> {
                 .filter_map(|blk_name| create_root_blk_info(blk_name).ok())
                 .collect()
         })
-        .unwrap_or(vec![])
+        .unwrap_or_default()
 }
