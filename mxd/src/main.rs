@@ -4,8 +4,8 @@ use log::{LevelFilter, info};
 
 mod api;
 mod discovery;
-mod file_service;
 mod server;
+mod srv;
 mod states;
 
 #[derive(Parser)]
@@ -22,9 +22,20 @@ struct Cli {
     #[clap(short, long, env = "MXD_STATIC_PATH", default_value = "./static")]
     static_path: String,
 
+    /// Enable discovery
+    #[clap(short, long, env = "MXD_DISCOVERY", default_value = "false")]
+    disable_discovery: bool,
+
     /// Enable verbose logging
     #[clap(short, long, default_value = "false")]
     verbose: bool,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct StartupArguments {
+    pub(crate) port: u16,
+    pub(crate) apikey: Option<String>,
+    pub(crate) static_path: String,
 }
 
 #[tokio::main]
@@ -45,11 +56,26 @@ async fn main() -> Result<()> {
 
     info!("MetalX Controller - Launching");
 
-    let (join, cancel) = discovery::serve(config.port);
-    if let Err(e) = server::main(config).await {
+    let discovery_ = if config.disable_discovery {
+        None
+    } else {
+        Some(discovery::serve(config.port))
+    };
+
+    if let Err(e) = server::main(StartupArguments {
+        port: config.port,
+        apikey: config.apikey,
+        static_path: config.static_path,
+    })
+    .await
+    {
         log::error!("Failed to start server: {}", e);
     }
-    cancel.cancel();
-    join.await?;
+
+    if let Some((join, cancel)) = discovery_ {
+        cancel.cancel();
+        join.await?;
+        log::info!("Discovery server stopped");
+    }
     Ok(())
 }

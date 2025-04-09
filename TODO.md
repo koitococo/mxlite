@@ -19,3 +19,6 @@
     - [ ] Partition information
     - [ ] Mountpoint information (to replace sysinfo crate)
 - [ ] Support realtime command output feedback
+- [ ] Add utils apis
+  - [ ] URL Subsitioin for file serving
+  - [ ] File System Browsing
