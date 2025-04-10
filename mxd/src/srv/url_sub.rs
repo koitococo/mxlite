@@ -46,6 +46,16 @@ async fn get_url_sub_host(
     if let Some(info) = info {
         if let Some(u) = info.controller_url {
             if let Ok(mut url) = Url::parse(u.as_str()) {
+                if url.set_scheme("http").is_err() {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(GetUrlSubResponse {
+                            ok: false,
+                            error: Some("Invalid URL scheme".to_string()),
+                            urls: vec![],
+                        }),
+                    );
+                }
                 url.set_path(&params.path);
                 (
                     StatusCode::OK,
@@ -140,7 +150,7 @@ fn match_ip(target: u32) -> Result<Vec<String>> {
             IfAddr::V4(addr) => {
                 if addr.prefixlen > 0
                     && addr.prefixlen < 32
-                    && addr.ip.to_bits() >> 32 - addr.prefixlen == target >> 32 - addr.prefixlen
+                    && addr.ip.to_bits() >> (32 - addr.prefixlen) == target >> (32 - addr.prefixlen)
                 {
                     Some(addr.ip.to_string())
                 } else {
