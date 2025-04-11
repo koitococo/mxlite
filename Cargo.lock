@@ -986,6 +986,7 @@ dependencies = [
  "clap",
  "common",
  "futures-util",
+ "http-range-header",
  "if-addrs",
  "log",
  "rand 0.9.0",

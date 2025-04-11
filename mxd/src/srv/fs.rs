@@ -148,10 +148,12 @@ struct GetReadParams {
 }
 
 async fn get_read(Query(params): Query<GetReadParams>) -> Response {
+    debug!("get_read: {:?}", params.path);
     if let Some(size) = metadata(&params.path).ok().and_then(|meta| {
         if meta.is_file() {
             Some(meta.size())
         } else {
+            debug!("get_read: Path is not a file: {:?}", params.path);
             None
         }
     }) {
@@ -161,6 +163,7 @@ async fn get_read(Query(params): Query<GetReadParams>) -> Response {
                 .map(|file| Body::from_stream(ReaderStream::new(file)).into_response())
                 .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
         } else {
+            debug!("get_read: File size exceeds max size: {:?}", params.path);
             StatusCode::IM_A_TEAPOT.into_response()
         }
     } else {
