@@ -1,22 +1,34 @@
+use std::{fs::metadata, ops::RangeInclusive, os::unix::fs::MetadataExt};
+
 use axum::{
     Json, Router,
     body::Body,
-    extract::{Query, State},
-    http::{HeaderValue, StatusCode},
+    extract::{Query, Request, State},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::get,
 };
+use log::{debug, error};
 use serde::Deserialize;
-use tokio::fs::File;
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt, AsyncSeekExt as _},
+};
 use tokio_util::io::ReaderStream;
 
-use crate::states::SharedAppState;
+use crate::states::{SharedAppState, file_map::FileMap};
 use axum::extract::Path;
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
     Router::new()
         .with_state(app.clone())
         .route("/{name}", get(get_file).head(head_file))
+}
+
+macro_rules! add_header {
+    ($headers:expr, $name:expr, $val:expr) => {
+        $headers.append($name, $val.parse().unwrap_or(HeaderValue::from_static("")));
+    };
 }
 
 #[derive(Deserialize)]
@@ -31,7 +43,9 @@ async fn get_file(
     State(app): State<SharedAppState>,
     Path(name): Path<String>,
     Query(params): Query<GetFileParams>,
+    req: Request,
 ) -> Response {
+    debug!("get file: {}", name);
     let map = app
         .file_map
         .get_file_with_optional_props(
@@ -42,47 +56,86 @@ async fn get_file(
             params.sha512.unwrap_or(false),
         )
         .await;
-    if let Some(file_map) = map {
-        let file_path = file_map.file_path.clone();
-        let file = File::open(file_path).await;
-        if let Ok(file) = file {
-            let mut builder = Response::builder()
-                .header("Content-Type", "application/octet-stream")
-                .header(
-                    "Content-Disposition",
+    if map.is_none() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let map = map.unwrap();
+    match File::open(map.file_path.clone()).await {
+        Ok(file) => match file.metadata().await {
+            Ok(meta) => {
+                let mut builder = Response::builder().header(
+                    header::CONTENT_DISPOSITION,
                     format!("attachment; filename=\"{}\"", name),
                 );
-            if let Some(xxh3) = file_map.xxh3 {
-                builder = builder.header("X-Hash-Xxh3", xxh3);
+                let headers = builder.headers_mut();
+                if headers.is_none() {
+                    return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                }
+                let headers = headers.unwrap();
+                apply_headers(headers, map);
+                let range = req
+                    .headers()
+                    .get(header::RANGE)
+                    .and_then(|v| v.to_str().ok())
+                    .map(|v| {
+                        http_range_header::parse_range_header(v)
+                            .and_then(|v| v.validate(meta.size()))
+                            .map(Into::<Vec<RangeInclusive<u64>>>::into)
+                    });
+                match range {
+                    Some(Ok(range)) => {
+                        if range.len() > 1 {
+                            return StatusCode::IM_A_TEAPOT.into_response(); // FIXME: Not supported range
+                        }
+                        let start = *range[0].start();
+                        let end = *range[0].end();
+                        let len = end - start + 1;
+                        let builder = builder
+                            .header(header::ACCEPT_RANGES, "bytes")
+                            .header(
+                                header::CONTENT_RANGE,
+                                format!("bytes {}-{}/{}", start, end, meta.len()),
+                            )
+                            .header(header::CONTENT_LENGTH, len.to_string());
+                        let mut file = file;
+                        file.seek(std::io::SeekFrom::Start(start)).await.unwrap();
+                        let stream2 = ReaderStream::with_capacity(file.take(len), 64 * 1024);
+                        // let body = stream.map(|chunk| chunk.map(|c| c.into_inner()));
+                        match builder.body(Body::from_stream(stream2)) {
+                            Ok(response) => response,
+                            Err(err) => (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(format!("Failed to create response: {}", err)),
+                            )
+                                .into_response(),
+                        }
+                    }
+                    Some(Err(err)) => (
+                        StatusCode::RANGE_NOT_SATISFIABLE,
+                        Json(format!("Invalid range header: {}", err)),
+                    )
+                        .into_response(),
+                    None => match builder.body(Body::from_stream(ReaderStream::new(file))) {
+                        Ok(response) => response,
+                        Err(err) => (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(format!("Failed to create response: {}", err)),
+                        )
+                            .into_response(),
+                    },
+                }
             }
-            if let Some(sha1) = file_map.sha1 {
-                builder = builder.header("X-Hash-Sha1", sha1);
-            }
-            if let Some(sha256) = file_map.sha256 {
-                builder = builder.header("X-Hash-Sha256", sha256);
-            }
-            if let Some(sha512) = file_map.sha512 {
-                builder = builder.header("X-Hash-Sha512", sha512);
-            }
-            let builder = builder.body(Body::from_stream(ReaderStream::new(file)));
-            if let Ok(response) = builder {
-                response
-            } else {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json("Failed to create response"),
-                )
-                    .into_response()
-            }
-        } else {
-            (
+            Err(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json("Failed to open file"),
+                Json(format!("Failed to get file metadata: {}", err)),
             )
-                .into_response()
-        }
-    } else {
-        (StatusCode::NOT_FOUND, Json("File not found")).into_response()
+                .into_response(),
+        },
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(format!("Failed to open file: {}", err)),
+        )
+            .into_response(),
     }
 }
 
@@ -101,23 +154,35 @@ async fn head_file(
             params.sha512.unwrap_or(false),
         )
         .await;
-    if let Some(file_map) = map {
-        let mut response = StatusCode::NO_CONTENT.into_response();
-        let headers = response.headers_mut();
-        if let Some(xxh3) = file_map.xxh3 {
-            headers.append(
-                "X-Hash-Xxh3",
-                xxh3.parse().unwrap_or(HeaderValue::from_static("")),
-            );
-        }
-        if let Some(sha1) = file_map.sha1 {
-            headers.append(
-                "X-Hash-Sha1",
-                sha1.parse().unwrap_or(HeaderValue::from_static("")),
-            );
-        }
-        response
-    } else {
-        StatusCode::NOT_FOUND.into_response()
+    if map.is_none() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let map = map.unwrap();
+    let meta = metadata(&map.file_path);
+    if meta.is_err() {
+        error!("Failed to get file metadata: {}", meta.unwrap_err());
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    let meta = meta.unwrap();
+    let mut response = StatusCode::NO_CONTENT.into_response();
+    let headers = response.headers_mut();
+    apply_headers(headers, map);
+    add_header!(headers, header::CONTENT_LENGTH, meta.len().to_string());
+    response
+}
+
+#[inline]
+fn apply_headers(headers: &mut HeaderMap, map: FileMap) {
+    if let Some(hash) = map.xxh3 {
+        add_header!(headers, "X-Hash-Xxh3", hash);
+    }
+    if let Some(hash) = map.sha1 {
+        add_header!(headers, "X-Hash-Sha1", hash);
+    }
+    if let Some(hash) = map.sha256 {
+        add_header!(headers, "X-Hash-Sha256", hash);
+    }
+    if let Some(hash) = map.sha512 {
+        add_header!(headers, "X-Hash-Sha512", hash);
     }
 }

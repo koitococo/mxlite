@@ -7,6 +7,7 @@ edition = "2024"
 base16ct = "0.2.0"
 base64 = "0.22.1"
 digest = "0.10.7"
+log = "0.4.27"
 serde = { version = "1.0.206", features = ["derive"] }
 serde_json = "1.0.124"
 sha1 = "0.10.6"

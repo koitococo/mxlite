@@ -117,7 +117,7 @@ async fn handle_ws(
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     info!("WebSocket connection with {:?}", socket_info);
-    let ct = (&app).cancel_signal.child_token();
+    let ct = app.cancel_signal.child_token();
     match handle_ws_inner(app, socket_info, headers, ws, ct).await {
         Ok(ws) => ws,
         Err(e) => {
@@ -163,7 +163,7 @@ async fn handle_socket(
     info!("WebSocket connection for id: {}", params.host_id);
     let session = app
         .host_session
-        .resume_session(&params.host_id, &params.session_id)
+        .get_session(&params.host_id, &params.session_id)
         .await
         .ok_or(anyhow::anyhow!(
             "Failed to obtain session for id: {}",
@@ -244,6 +244,7 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
 async fn handle_msg(msg: AgentMessage, session: Arc<HostSession>) -> Result<()> {
     debug!("Received message: {:?}", msg);
     if let Some(response) = msg.response {
+        info!("Task Completed: {} {}", session.host_id, response.id);
         session.set_task_finished(response.id, response);
     }
     if let Some(events) = msg.events {
