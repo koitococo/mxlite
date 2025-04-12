@@ -117,14 +117,17 @@ async fn get_file(
                         Json(format!("Invalid range header: {}", err)),
                     )
                         .into_response(),
-                    None => match builder.body(Body::from_stream(ReaderStream::new(file))) {
-                        Ok(response) => response,
-                        Err(err) => (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(format!("Failed to create response: {}", err)),
-                        )
-                            .into_response(),
-                    },
+                    None => {
+                        add_header!(headers, header::CONTENT_LENGTH, meta.len().to_string());
+                        match builder.body(Body::from_stream(ReaderStream::new(file))) {
+                            Ok(response) => response,
+                            Err(err) => (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(format!("Failed to create response: {}", err)),
+                            )
+                                .into_response(),
+                        }
+                    }
                 }
             }
             Err(err) => (
@@ -146,6 +149,7 @@ async fn head_file(
     Path(name): Path<String>,
     Query(params): Query<GetFileParams>,
 ) -> Response {
+    debug!("head file: {}", name);
     let map = app
         .file_map
         .get_file_with_optional_props(
