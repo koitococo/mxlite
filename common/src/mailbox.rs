@@ -1,7 +1,9 @@
 use std::{
-    collections::{BTreeMap, btree_map::Entry},
+    collections::BTreeMap,
     sync::{Arc, RwLock},
 };
+
+use log::error;
 
 pub trait Mailbox<Tag, Msg> {
     fn new() -> Self;
@@ -30,22 +32,19 @@ impl<Tag: Ord + Clone, Msg> Mailbox<Tag, Msg> for SimpleMailbox<Tag, Msg> {
 
     fn send(&self, tag: Tag, msg: Msg) -> bool {
         let guard = self._inner.write();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return false;
         }
         let mut guard = guard.unwrap();
-        match guard.entry(tag) {
-            Entry::Occupied(_) => false,
-            Entry::Vacant(entry) => {
-                entry.insert((false, Arc::new(msg)));
-                true
-            }
-        }
+        guard.insert(tag, (false, Arc::new(msg)));
+        true
     }
 
     fn receive(&self, tag: &Tag) -> Option<Arc<Msg>> {
         let guard = self._inner.write();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return None;
         }
         let mut guard = guard.unwrap();
@@ -59,7 +58,8 @@ impl<Tag: Ord + Clone, Msg> Mailbox<Tag, Msg> for SimpleMailbox<Tag, Msg> {
 
     fn get_read(&self, tag: &Tag) -> Option<bool> {
         let guard = self._inner.read();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return None;
         }
         let guard = guard.unwrap();
@@ -72,7 +72,8 @@ impl<Tag: Ord + Clone, Msg> Mailbox<Tag, Msg> for SimpleMailbox<Tag, Msg> {
 
     fn set_read(&self, tag: &Tag, read: bool) -> bool {
         let guard = self._inner.write();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return false;
         }
         let mut guard = guard.unwrap();
@@ -86,7 +87,8 @@ impl<Tag: Ord + Clone, Msg> Mailbox<Tag, Msg> for SimpleMailbox<Tag, Msg> {
 
     fn delete(&self, tag: &Tag) -> bool {
         let guard = self._inner.write();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return false;
         }
         let mut guard = guard.unwrap();
@@ -95,7 +97,8 @@ impl<Tag: Ord + Clone, Msg> Mailbox<Tag, Msg> for SimpleMailbox<Tag, Msg> {
 
     fn clear(&self) {
         let guard = self._inner.write();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return;
         }
         let mut guard = guard.unwrap();
@@ -104,7 +107,8 @@ impl<Tag: Ord + Clone, Msg> Mailbox<Tag, Msg> for SimpleMailbox<Tag, Msg> {
 
     fn list(&self) -> Vec<Tag> {
         let guard = self._inner.read();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return Vec::with_capacity(0);
         }
         let guard = guard.unwrap();
@@ -113,7 +117,8 @@ impl<Tag: Ord + Clone, Msg> Mailbox<Tag, Msg> for SimpleMailbox<Tag, Msg> {
 
     fn gc(&self) {
         let guard = self._inner.write();
-        if guard.is_err() {
+        if let Err(e) = guard {
+            error!("Failed to acquire write lock: {}", e);
             return;
         }
         let mut guard = guard.unwrap();

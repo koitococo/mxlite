@@ -55,17 +55,20 @@ pub(crate) async fn main(config: StartupArguments) -> Result<()> {
     let halt_signal = CancellationToken::new();
     let halt_signal2 = halt_signal.clone();
     let app: SharedAppState = Arc::new(AppState::new(halt_signal.clone(), config.clone()));
+    let mut route = Router::new()
+        .route("/ws", get(handle_ws).head(async || StatusCode::OK))
+        .nest("/api", api::build(app.clone()))
+        .nest("/srv", srv::build(app.clone()));
+    if let Some(static_path) = config.static_path {
+        route = route.nest_service("/static", ServeDir::new(static_path));
+    }
     let serve = axum::serve(
         TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::UNSPECIFIED),
             config.port,
         ))
         .await?,
-        Router::new()
-            .route("/ws", get(handle_ws).head(async || StatusCode::OK))
-            .nest("/api", api::build(app.clone()))
-            .nest("/srv", srv::build(app.clone()))
-            .nest_service("/static", ServeDir::new(config.static_path))
+        route
             .with_state(app.clone())
             .into_make_service_with_connect_info::<SocketConnectInfo>(),
     )
@@ -117,7 +120,7 @@ async fn handle_ws(
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     info!("WebSocket connection with {:?}", socket_info);
-    let ct = (&app).cancel_signal.child_token();
+    let ct = app.cancel_signal.child_token();
     match handle_ws_inner(app, socket_info, headers, ws, ct).await {
         Ok(ws) => ws,
         Err(e) => {
@@ -163,7 +166,7 @@ async fn handle_socket(
     info!("WebSocket connection for id: {}", params.host_id);
     let session = app
         .host_session
-        .resume_session(&params.host_id, &params.session_id)
+        .get_session(&params.host_id, &params.session_id)
         .await
         .ok_or(anyhow::anyhow!(
             "Failed to obtain session for id: {}",
@@ -244,6 +247,7 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
 async fn handle_msg(msg: AgentMessage, session: Arc<HostSession>) -> Result<()> {
     debug!("Received message: {:?}", msg);
     if let Some(response) = msg.response {
+        info!("Task Completed: {} {}", session.host_id, response.id);
         session.set_task_finished(response.id, response);
     }
     if let Some(events) = msg.events {

@@ -7,7 +7,7 @@ use common::{
     state::{AtomticStateStorage, StateStorage as _},
     system_info::SystemInfo,
 };
-use log::debug;
+use log::{debug, warn};
 use serde::Serialize;
 use tokio::sync::{
     Mutex,
@@ -89,7 +89,9 @@ impl HostSession {
     }
 
     pub(crate) fn set_task_finished(&self, id: u64, resp: AgentResponse) {
-        self.tasks.send(id, TaskState::Finished(resp));
+        if ! self.tasks.send(id, TaskState::Finished(resp)) {
+            warn!("Failed to set task state for id: {}", id);
+        }
     }
 
     pub(crate) fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> {
@@ -104,7 +106,7 @@ impl HostSessionStorage {
         Self(AtomticStateStorage::new())
     }
 
-    pub(crate) async fn resume_session(
+    pub(crate) async fn get_session(
         &self,
         host_id: &String,
         session_id: &String,
