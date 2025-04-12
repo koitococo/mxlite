@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use httpdate::HttpDate;
 use log::{debug, error, warn};
 use serde::Deserialize;
 use tokio::{
@@ -63,16 +64,20 @@ async fn get_file(
     match File::open(map.file_path.clone()).await {
         Ok(file) => match file.metadata().await {
             Ok(meta) => {
-                let mut builder = Response::builder().header(
-                    header::CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"{}\"", name),
-                );
+                let mut builder = Response::builder();
                 let headers = builder.headers_mut();
                 if headers.is_none() {
                     return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                 }
                 let headers = headers.unwrap();
-                apply_headers(headers, map);
+                apply_hash_headers(headers, map);
+                add_header!(headers, header::CONTENT_TYPE, "application/octet-stream");
+                add_header!(headers, header::ACCEPT_RANGES, "bytes");
+                add_header!(
+                    headers,
+                    header::LAST_MODIFIED,
+                    HttpDate::from(meta.modified().unwrap()).to_string()
+                );
                 let range = req
                     .headers()
                     .get(header::RANGE)
@@ -93,7 +98,6 @@ async fn get_file(
                         let end = *range[0].end();
                         let len = end - start + 1;
                         let builder = builder
-                            .header(header::ACCEPT_RANGES, "bytes")
                             .header(
                                 header::CONTENT_RANGE,
                                 format!("bytes {}-{}/{}", start, end, meta.len()),
@@ -170,15 +174,22 @@ async fn head_file(
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     let meta = meta.unwrap();
-    let mut response = StatusCode::NO_CONTENT.into_response();
+    let mut response = StatusCode::OK.into_response();
     let headers = response.headers_mut();
-    apply_headers(headers, map);
+    apply_hash_headers(headers, map);
     add_header!(headers, header::CONTENT_LENGTH, meta.len().to_string());
+    add_header!(headers, header::CONTENT_TYPE, "application/octet-stream");
+    add_header!(headers, header::ACCEPT_RANGES, "bytes");
+    add_header!(
+        headers,
+        header::LAST_MODIFIED,
+        HttpDate::from(meta.modified().unwrap()).to_string()
+    );
     response
 }
 
 #[inline]
-fn apply_headers(headers: &mut HeaderMap, map: FileMap) {
+fn apply_hash_headers(headers: &mut HeaderMap, map: FileMap) {
     if let Some(hash) = map.xxh3 {
         add_header!(headers, "X-Hash-Xxh3", hash);
     }

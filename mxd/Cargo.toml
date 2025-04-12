@@ -22,3 +22,4 @@ tower-http = { version = "0.6.2", features = ["fs"] }
 clap = { version = "4.5.35", features = ["derive", "env"] }
 url = "2.5.4"
 http-range-header = "0.4.2"
+httpdate = "1.0.3"

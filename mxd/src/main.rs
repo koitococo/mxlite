@@ -19,8 +19,8 @@ struct Cli {
     apikey: Option<String>,
 
     /// Path to static files
-    #[clap(short, long, env = "MXD_STATIC_PATH", default_value = "./static")]
-    static_path: String,
+    #[clap(short, long, env = "MXD_STATIC_PATH")]
+    static_path: Option<String>,
 
     /// Enable discovery
     #[clap(short, long, env = "MXD_DISCOVERY", default_value = "false")]
@@ -35,7 +35,7 @@ struct Cli {
 pub(crate) struct StartupArguments {
     pub(crate) port: u16,
     pub(crate) apikey: Option<String>,
-    pub(crate) static_path: String,
+    pub(crate) static_path: Option<String>,
 }
 
 #[tokio::main]
