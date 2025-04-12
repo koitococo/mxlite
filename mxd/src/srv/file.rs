@@ -8,7 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use log::{debug, error};
+use log::{debug, error, warn};
 use serde::Deserialize;
 use tokio::{
     fs::File,
@@ -84,7 +84,9 @@ async fn get_file(
                     });
                 match range {
                     Some(Ok(range)) => {
+                        debug!("Range header: {:?}", range);
                         if range.len() > 1 {
+                            warn!("Range header contains multiple ranges: {:?}", range);
                             return StatusCode::IM_A_TEAPOT.into_response(); // FIXME: Not supported range
                         }
                         let start = *range[0].start();
@@ -96,11 +98,11 @@ async fn get_file(
                                 header::CONTENT_RANGE,
                                 format!("bytes {}-{}/{}", start, end, meta.len()),
                             )
-                            .header(header::CONTENT_LENGTH, len.to_string());
+                            .header(header::CONTENT_LENGTH, len.to_string())
+                            .status(StatusCode::PARTIAL_CONTENT);
                         let mut file = file;
                         file.seek(std::io::SeekFrom::Start(start)).await.unwrap();
                         let stream2 = ReaderStream::with_capacity(file.take(len), 64 * 1024);
-                        // let body = stream.map(|chunk| chunk.map(|c| c.into_inner()));
                         match builder.body(Body::from_stream(stream2)) {
                             Ok(response) => response,
                             Err(err) => (
