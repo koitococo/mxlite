@@ -55,17 +55,20 @@ pub(crate) async fn main(config: StartupArguments) -> Result<()> {
     let halt_signal = CancellationToken::new();
     let halt_signal2 = halt_signal.clone();
     let app: SharedAppState = Arc::new(AppState::new(halt_signal.clone(), config.clone()));
+    let mut route = Router::new()
+        .route("/ws", get(handle_ws).head(async || StatusCode::OK))
+        .nest("/api", api::build(app.clone()))
+        .nest("/srv", srv::build(app.clone()));
+    if let Some(static_path) = config.static_path {
+        route = route.nest_service("/static", ServeDir::new(static_path));
+    }
     let serve = axum::serve(
         TcpListener::bind(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::UNSPECIFIED),
             config.port,
         ))
         .await?,
-        Router::new()
-            .route("/ws", get(handle_ws).head(async || StatusCode::OK))
-            .nest("/api", api::build(app.clone()))
-            .nest("/srv", srv::build(app.clone()))
-            .nest_service("/static", ServeDir::new(config.static_path))
+        route
             .with_state(app.clone())
             .into_make_service_with_connect_info::<SocketConnectInfo>(),
     )

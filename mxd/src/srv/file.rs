@@ -8,7 +8,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use log::{debug, error};
+use httpdate::HttpDate;
+use log::{debug, error, warn};
 use serde::Deserialize;
 use tokio::{
     fs::File,
@@ -63,16 +64,20 @@ async fn get_file(
     match File::open(map.file_path.clone()).await {
         Ok(file) => match file.metadata().await {
             Ok(meta) => {
-                let mut builder = Response::builder().header(
-                    header::CONTENT_DISPOSITION,
-                    format!("attachment; filename=\"{}\"", name),
-                );
+                let mut builder = Response::builder();
                 let headers = builder.headers_mut();
                 if headers.is_none() {
                     return StatusCode::INTERNAL_SERVER_ERROR.into_response();
                 }
                 let headers = headers.unwrap();
-                apply_headers(headers, map);
+                apply_hash_headers(headers, map);
+                add_header!(headers, header::CONTENT_TYPE, "application/octet-stream");
+                add_header!(headers, header::ACCEPT_RANGES, "bytes");
+                add_header!(
+                    headers,
+                    header::LAST_MODIFIED,
+                    HttpDate::from(meta.modified().unwrap()).to_string()
+                );
                 let range = req
                     .headers()
                     .get(header::RANGE)
@@ -84,23 +89,24 @@ async fn get_file(
                     });
                 match range {
                     Some(Ok(range)) => {
+                        debug!("Range header: {:?}", range);
                         if range.len() > 1 {
+                            warn!("Range header contains multiple ranges: {:?}", range);
                             return StatusCode::IM_A_TEAPOT.into_response(); // FIXME: Not supported range
                         }
                         let start = *range[0].start();
                         let end = *range[0].end();
                         let len = end - start + 1;
                         let builder = builder
-                            .header(header::ACCEPT_RANGES, "bytes")
                             .header(
                                 header::CONTENT_RANGE,
                                 format!("bytes {}-{}/{}", start, end, meta.len()),
                             )
-                            .header(header::CONTENT_LENGTH, len.to_string());
+                            .header(header::CONTENT_LENGTH, len.to_string())
+                            .status(StatusCode::PARTIAL_CONTENT);
                         let mut file = file;
                         file.seek(std::io::SeekFrom::Start(start)).await.unwrap();
                         let stream2 = ReaderStream::with_capacity(file.take(len), 64 * 1024);
-                        // let body = stream.map(|chunk| chunk.map(|c| c.into_inner()));
                         match builder.body(Body::from_stream(stream2)) {
                             Ok(response) => response,
                             Err(err) => (
@@ -115,14 +121,17 @@ async fn get_file(
                         Json(format!("Invalid range header: {}", err)),
                     )
                         .into_response(),
-                    None => match builder.body(Body::from_stream(ReaderStream::new(file))) {
-                        Ok(response) => response,
-                        Err(err) => (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(format!("Failed to create response: {}", err)),
-                        )
-                            .into_response(),
-                    },
+                    None => {
+                        add_header!(headers, header::CONTENT_LENGTH, meta.len().to_string());
+                        match builder.body(Body::from_stream(ReaderStream::new(file))) {
+                            Ok(response) => response,
+                            Err(err) => (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                Json(format!("Failed to create response: {}", err)),
+                            )
+                                .into_response(),
+                        }
+                    }
                 }
             }
             Err(err) => (
@@ -144,6 +153,7 @@ async fn head_file(
     Path(name): Path<String>,
     Query(params): Query<GetFileParams>,
 ) -> Response {
+    debug!("head file: {}", name);
     let map = app
         .file_map
         .get_file_with_optional_props(
@@ -164,15 +174,22 @@ async fn head_file(
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     let meta = meta.unwrap();
-    let mut response = StatusCode::NO_CONTENT.into_response();
+    let mut response = StatusCode::OK.into_response();
     let headers = response.headers_mut();
-    apply_headers(headers, map);
+    apply_hash_headers(headers, map);
     add_header!(headers, header::CONTENT_LENGTH, meta.len().to_string());
+    add_header!(headers, header::CONTENT_TYPE, "application/octet-stream");
+    add_header!(headers, header::ACCEPT_RANGES, "bytes");
+    add_header!(
+        headers,
+        header::LAST_MODIFIED,
+        HttpDate::from(meta.modified().unwrap()).to_string()
+    );
     response
 }
 
 #[inline]
-fn apply_headers(headers: &mut HeaderMap, map: FileMap) {
+fn apply_hash_headers(headers: &mut HeaderMap, map: FileMap) {
     if let Some(hash) = map.xxh3 {
         add_header!(headers, "X-Hash-Xxh3", hash);
     }
