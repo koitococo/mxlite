@@ -1,4 +1,4 @@
-use std::{fs::metadata, ops::RangeInclusive, os::unix::fs::MetadataExt};
+use std::{fs::metadata, os::unix::fs::MetadataExt};
 
 use axum::{
     Json, Router,
@@ -85,7 +85,6 @@ async fn get_file(
                     .map(|v| {
                         http_range_header::parse_range_header(v)
                             .and_then(|v| v.validate(meta.size()))
-                            .map(Into::<Vec<RangeInclusive<u64>>>::into)
                     });
                 match range {
                     Some(Ok(range)) => {
