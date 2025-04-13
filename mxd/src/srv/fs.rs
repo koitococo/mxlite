@@ -1,7 +1,4 @@
-use std::{
-    fs::{metadata, read_dir, symlink_metadata},
-    os::unix::fs::MetadataExt,
-};
+use std::fs::{metadata, read_dir, symlink_metadata};
 
 use anyhow::Result;
 use axum::{
@@ -151,7 +148,7 @@ async fn get_read(Query(params): Query<GetReadParams>) -> Response {
     debug!("get_read: {:?}", params.path);
     if let Some(size) = metadata(&params.path).ok().and_then(|meta| {
         if meta.is_file() {
-            Some(meta.size())
+            Some(meta.len())
         } else {
             debug!("get_read: Path is not a file: {:?}", params.path);
             None

@@ -1,4 +1,4 @@
-use std::{fs::metadata, os::unix::fs::MetadataExt};
+use std::fs::metadata;
 
 use axum::{
     Json, Router,
@@ -84,7 +84,7 @@ async fn get_file(
                     .and_then(|v| v.to_str().ok())
                     .map(|v| {
                         http_range_header::parse_range_header(v)
-                            .and_then(|v| v.validate(meta.size()))
+                            .and_then(|v| v.validate(meta.len()))
                     });
                 match range {
                     Some(Ok(range)) => {
