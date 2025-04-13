@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
                 }
             }
         };
-        if let Err(err) = net::handle_ws_url(
+        match net::handle_ws_url(
             ws_url.clone(),
             host_id.clone(),
             session_id.clone(),
@@ -67,7 +67,14 @@ async fn main() -> Result<()> {
         )
         .await
         {
-            error!("Agent failed: {}", err);
+            Err(err) => {
+                error!("Agent failed: {}", err);
+            }
+            Ok(exit) => {
+                if exit {
+                    return Ok(());
+                }
+            }
         }
     }
 }

@@ -12,7 +12,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use log::{debug, trace, warn};
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use tokio_util::io::ReaderStream;
 
