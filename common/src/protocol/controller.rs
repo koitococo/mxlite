@@ -123,3 +123,6 @@ impl ToString for AgentMessage {
         serde_json::to_string(self).unwrap()
     }
 }
+
+// pub const CLOSE_CODE : u16 = 1000;
+// pub const CLOSE_MXA_SHUTDOWN: &str = "MXA_SHUTDOWN";

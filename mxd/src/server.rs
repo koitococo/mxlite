@@ -83,6 +83,8 @@ pub(crate) async fn main(config: StartupArguments) -> Result<()> {
             }
             _ = tokio::signal::ctrl_c() => {
                 info!("Received Ctrl-C, shutting down");
+                halt_signal.cancel();
+                halt_signal.cancelled().await;
             }
         }
     });
@@ -168,7 +170,10 @@ async fn handle_socket(
     app: SharedAppState,
     ct: CancellationToken,
 ) -> Result<()> {
-    info!("WebSocket connection for id: {} {}", params.host_id, params.session_id);
+    info!(
+        "WebSocket connection for id: {} {}",
+        params.host_id, params.session_id
+    );
     let session = app
         .host_session
         .create_session(
@@ -254,7 +259,10 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
                 Ok(true)
             }
             Message::Binary(_) => Err(anyhow!("Binary message not supported")), // Not supported yet
-            Message::Close(_) => Ok(false),
+            Message::Close(e) => {
+                debug!("WebSocket connection closed: {:?}", e);
+                Ok(false)
+            }
             Message::Ping(_) | Message::Pong(_) => Ok(true), // handled by underlying library
         }
     } else {

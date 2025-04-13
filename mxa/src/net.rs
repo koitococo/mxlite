@@ -1,8 +1,13 @@
 use common::{
     protocol::{
         controller::{
-            AgentMessage, AgentResponse, AgentResponsePayload, ControllerMessage,
-            ControllerRequest, PROTOCOL_VERSION,
+            AgentMessage,
+            AgentResponse,
+            AgentResponsePayload,
+            // CLOSE_CODE, CLOSE_MXA_SHUTDOWN,
+            ControllerMessage,
+            ControllerRequest,
+            PROTOCOL_VERSION,
         },
         handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
     },
@@ -55,6 +60,18 @@ impl Context {
     }
 }
 
+async fn safe_sleep(duration: u64) -> bool {
+    select! {
+        _ = tokio::time::sleep(std::time::Duration::from_millis(duration)) => {
+            false
+        },
+        _ = tokio::signal::ctrl_c() => {
+            info!("Received Ctrl-C, shutting down");
+            true
+        }
+    }
+}
+
 pub(crate) async fn handle_ws_url(
     ws_url: String,
     host_id: String,
@@ -78,7 +95,8 @@ pub(crate) async fn handle_ws_url(
             .to_string()
             .parse()?,
         );
-        for retry in 0..5 {
+        let mut retry = 0;
+        while retry < 5 {
             match connect_async_with_config(
                 req.clone(),
                 Some(WebSocketConfig {
@@ -90,6 +108,7 @@ pub(crate) async fn handle_ws_url(
             {
                 Ok((ws, _)) => {
                     info!("Connected to controller");
+                    retry = 0;
                     match handle_conn(ws).await {
                         Err(e) => {
                             error!("Failed to handle connection: {}", e);
@@ -103,19 +122,21 @@ pub(crate) async fn handle_ws_url(
                         }
                     }
                     warn!("Connection closed");
+                    if safe_sleep(5000).await {
+                        return Ok(true);
+                    }
                     break;
                 }
                 Err(err) => {
                     error!("Failed to connect to controller: {}", err);
-                    tokio::time::sleep(std::time::Duration::from_secs(
-                        ((1.5f32).powi(retry) * 3f32 + 5f32) as u64, // 1.5 ^ retry * 3 + 5
-                    ))
-                    .await;
+                    if safe_sleep(((1.5f32).powi(retry) * 3000f32 + 5000f32) as u64).await {
+                        return Ok(true);
+                    }
+                    retry += 1
                 }
             }
         }
         info!("Retrying connection to controller...");
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 }
 
@@ -126,7 +147,7 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<b
     loop {
         select! {
             _ = tokio::signal::ctrl_c() => {
-                info!("Received Ctrl-C, shutting down");
+                info!("Received Ctrl-C, shutting down websocket connection");
                 tx.send(Message::Close(None)).await?;
                 break Ok(true);
             }
@@ -142,8 +163,8 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<b
                     Ok(c) => {
                         if c {
                             info!("WebSocket event loop exited");
-                            break Ok(true);
                         }
+                        break Ok(c);
                     }
                     Err(e) => {
                         error!("Failed to handle WebSocket event: {}", e);
@@ -186,7 +207,7 @@ async fn handle_ws_event(
             }
         }
     } else {
-        Ok(true)
+        Ok(false)
     }
 }
 
@@ -239,8 +260,10 @@ async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<bool> {
         Message::Pong(_) => trace!("Received Pong frame"),
         Message::Close(e) => {
             warn!("Connection is closing: {:?}", e);
-            tx.send(Message::Close(None)).await?;
-            return Ok(true)
+            // return Ok(e
+            //     .map(|v| u16::from(v.code) == CLOSE_CODE && v.reason == CLOSE_MXA_SHUTDOWN)
+            //     .unwrap_or(false));
+            return Ok(false);
         }
         Message::Frame(_) => warn!("Received a malformed message from controller, ignored",),
     }
