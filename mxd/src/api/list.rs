@@ -10,6 +10,5 @@ pub(super) struct GetResponse {
 }
 
 pub(super) async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
-    let sessions = app.host_session.list_sessions().await;
-    Json(GetResponse { ok: true, sessions })
+    Json(GetResponse { ok: true, sessions: app.host_session.list() })
 }

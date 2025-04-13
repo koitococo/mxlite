@@ -42,45 +42,37 @@ async fn get_url_sub_host(
     State(app): State<SharedAppState>,
     Query(params): Query<GetUrlSubByHostParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
-    let info = app.host_session.get_extra_info(&params.host).await;
-    if let Some(info) = info {
-        if let Some(u) = info.controller_url {
-            if let Ok(mut url) = Url::parse(u.as_str()) {
-                if url.set_scheme("http").is_err() {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(GetUrlSubResponse {
-                            ok: false,
-                            error: Some("Invalid URL scheme".to_string()),
-                            urls: vec![],
-                        }),
-                    );
-                }
-                url.set_path(&params.path);
-                (
-                    StatusCode::OK,
-                    Json(GetUrlSubResponse {
-                        ok: true,
-                        error: None,
-                        urls: vec![url.to_string()],
-                    }),
-                )
-            } else {
-                (
+    if let Some(info) = app
+        .host_session
+        .get(&params.host)
+        .map(|s| s.extra.clone())
+    {
+        if let Ok(mut url) = Url::parse(&info.controller_url) {
+            if url.set_scheme("http").is_err() {
+                return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(GetUrlSubResponse {
                         ok: false,
-                        error: Some("Host provided bad info".to_string()),
+                        error: Some("Invalid URL scheme".to_string()),
                         urls: vec![],
                     }),
-                )
+                );
             }
+            url.set_path(&params.path);
+            (
+                StatusCode::OK,
+                Json(GetUrlSubResponse {
+                    ok: true,
+                    error: None,
+                    urls: vec![url.to_string()],
+                }),
+            )
         } else {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(GetUrlSubResponse {
                     ok: false,
-                    error: Some("Host not provide info".to_string()),
+                    error: Some("Host provided bad info".to_string()),
                     urls: vec![],
                 }),
             )

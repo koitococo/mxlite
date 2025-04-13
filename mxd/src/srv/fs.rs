@@ -40,7 +40,7 @@ struct GetLsdirResponse {
 }
 
 async fn get_lsdir(Query(params): Query<GetLsdirParams>) -> Json<GetLsdirResponse> {
-    trace!("retrieve dir info: {:?}", params.path);
+    debug!("retrieve dir info: {:?}", params.path);
     if !std::fs::exists(&params.path).unwrap_or(false) {
         return Json(GetLsdirResponse {
             ok: false,

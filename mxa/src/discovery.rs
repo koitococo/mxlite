@@ -4,7 +4,7 @@ use common::protocol::discovery::{
     PROTOCOL_REV,
 };
 use futures_util::future::join_all;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use reqwest::Url;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::{self, FromStr};
@@ -24,7 +24,7 @@ pub async fn discover_controller() -> Result<Vec<String>> {
         let req_str = req.to_string();
         let req_bin = req_str.as_bytes();
         for _ in 0..10 {
-            trace!("Sending discovery request: {}", req_str);
+            debug!("Sending discovery request: {}", req_str);
             socket
                 .send_to(
                     req_bin,

@@ -49,6 +49,12 @@ impl RespondHandler {
     async fn pong(self, data: Vec<u8>) -> Result<()> {
         self.respond(Message::Pong(data)).await
     }
+
+    async fn close(self) {
+        if let Err(e) = self.respond(Message::Close(None)).await {
+            error!("Failed to send close message: {}", e);
+        }
+    }
 }
 
 pub(crate) struct Context {
@@ -114,7 +120,10 @@ pub(crate) async fn handle_ws_url(
             {
                 Ok((ws, _)) => {
                     info!("Connected to controller");
-                    handle_conn(ws).await?;
+                    if let Err(e) = handle_conn(ws).await {
+                        error!("Failed to handle connection: {}", e);
+                        continue;
+                    }
                     warn!("Connection closed");
                     break;
                 }
@@ -127,13 +136,15 @@ pub(crate) async fn handle_ws_url(
                 }
             }
         }
+        info!("Retrying connection to controller...");
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 }
 
 async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<()> {
     let (tx, mut rx) = ws.split();
     let responder = RespondHandler::new(tx);
-    trace!("Websocket connected to controller. Begin to handle message loop");
+    debug!("Websocket connected to controller. Begin to handle message loop");
     loop {
         select! {
             _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
@@ -158,6 +169,7 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<(
             }
         }
     }
+    responder.close().await;
     Ok(())
 }
 

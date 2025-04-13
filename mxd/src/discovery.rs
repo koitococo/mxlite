@@ -7,7 +7,7 @@ use anyhow::Result;
 use common::protocol::discovery::{
     DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE,
 };
-use log::{error, info, trace, warn};
+use log::{error, info, debug, warn};
 use tokio::{net::UdpSocket, select, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
@@ -31,7 +31,7 @@ fn get_ws_urls(port: u16) -> Result<Vec<String>> {
 
 async fn recv_pack(socket: &UdpSocket, port: u16) -> Result<()> {
     let mut buf = [0u8; 1024];
-    trace!("Waiting for discovery request");
+    debug!("Waiting for discovery request");
     match socket.recv_from(&mut buf).await {
         Ok((size, addr)) => {
             info!(
