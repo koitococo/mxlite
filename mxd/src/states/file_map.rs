@@ -35,7 +35,7 @@ impl FileMapStorage {
             .canonicalize()
             .map(|p| p.to_string_lossy().to_string())
             .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
-        self.0.set(
+        self.0.insert(
             publish_name,
             FileMap {
                 file_path: new_path,
@@ -94,7 +94,7 @@ impl FileMapStorage {
                     }
                 }
             }
-            self.0.set(publish_name.clone(), new_inner.clone());
+            self.0.insert(publish_name.clone(), new_inner.clone());
             Some(new_inner)
         } else {
             None

@@ -8,11 +8,15 @@ use common::{
     },
     system_info::SystemInfo,
 };
-use std::{str::FromStr, sync::Arc};
-use tokio::{net::TcpStream, select, sync::Mutex};
+use std::str::FromStr;
+use tokio::{
+    net::TcpStream,
+    select,
+    sync::mpsc::{self, Sender},
+};
 
 use anyhow::{Result, anyhow};
-use futures_util::{SinkExt, StreamExt, stream::SplitSink};
+use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info, trace, warn};
 use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream, connect_async_with_config,
@@ -24,44 +28,16 @@ use tokio_tungstenite::{
 
 use crate::executor::handle_event;
 
-#[derive(Debug, Clone)]
-struct RespondHandler {
-    tx: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
-}
-
-impl RespondHandler {
-    fn new(tx: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>) -> Self {
-        RespondHandler {
-            tx: Arc::new(Mutex::new(tx)),
-        }
-    }
-
-    async fn respond(self, msg: Message) -> Result<()> {
-        let mut guard = self.tx.lock().await;
-        guard.send(msg).await?;
-        Ok(())
-    }
-
-    async fn ping(self) -> Result<()> {
-        self.respond(Message::Ping(vec![])).await
-    }
-
-    async fn pong(self, data: Vec<u8>) -> Result<()> {
-        self.respond(Message::Pong(data)).await
-    }
-}
-
 pub(crate) struct Context {
     pub(crate) request: ControllerRequest,
-    responder: RespondHandler,
+    tx: Sender<Message>,
 }
 
 impl Context {
-    pub(crate) async fn respond(&self, ok: bool, payload: AgentResponsePayload) {
+    pub(crate) async fn respond(self, ok: bool, payload: AgentResponsePayload) {
         if let Err(e) = self
-            .responder
-            .clone()
-            .respond(Message::Text(
+            .tx
+            .send(Message::Text(
                 AgentMessage {
                     response: Some(AgentResponse {
                         id: self.request.id,
@@ -84,7 +60,7 @@ pub(crate) async fn handle_ws_url(
     host_id: String,
     session_id: String,
     envs: Vec<String>,
-) -> Result<()> {
+) -> Result<bool> {
     info!("Use Controller URL: {}", &ws_url);
     loop {
         info!("Connecting to controller websocket: {}", &ws_url);
@@ -114,7 +90,18 @@ pub(crate) async fn handle_ws_url(
             {
                 Ok((ws, _)) => {
                     info!("Connected to controller");
-                    handle_conn(ws).await?;
+                    match handle_conn(ws).await {
+                        Err(e) => {
+                            error!("Failed to handle connection: {}", e);
+                            continue;
+                        }
+                        Ok(exit) => {
+                            if exit {
+                                info!("Exiting connection loop");
+                                return Ok(true);
+                            }
+                        }
+                    }
                     warn!("Connection closed");
                     break;
                 }
@@ -127,47 +114,63 @@ pub(crate) async fn handle_ws_url(
                 }
             }
         }
+        info!("Retrying connection to controller...");
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 }
 
-async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<()> {
-    let (tx, mut rx) = ws.split();
-    let responder = RespondHandler::new(tx);
-    trace!("Websocket connected to controller. Begin to handle message loop");
+async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<bool> {
+    let (mut tx, mut rx) = ws.split();
+    let (tx_tx, mut tx_rx) = mpsc::channel::<Message>(16);
+    debug!("Websocket connected to controller. Begin to handle message loop");
     loop {
         select! {
+            _ = tokio::signal::ctrl_c() => {
+                info!("Received Ctrl-C, shutting down");
+                tx.send(Message::Close(None)).await?;
+                break Ok(true);
+            }
             _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
                 trace!("Sending ping to controller");
-                if let Err(e) = responder.clone().ping().await {
+                if let Err(e) = tx.send(Message::Ping("ping".into())).await {
                     error!("Failed to send ping: {}", e);
-                    break;
+                    break Ok(false);
                 }
             }
             msg = rx.next() => {
-                match handle_ws_event(msg, responder.clone()).await {
+                match handle_ws_event(msg, tx_tx.clone()).await {
                     Ok(c) => {
-                        if !c {
-                            break;
-                        }
+                        break Ok(!c)
                     }
                     Err(e) => {
                         error!("Failed to handle WebSocket event: {}", e);
-                        break;
+                        break Ok(false);
                     }
+                }
+            }
+            msg = tx_rx.recv() => {
+                if let Some(msg) = msg {
+                    debug!("Sending message to controller: {:?}", msg);
+                    if let Err(e) = tx.send(msg).await {
+                        error!("Failed to send message to controller: {}", e);
+                        break Ok(false);
+                    }
+                } else {
+                    info!("Internal channel closed");
+                    break Ok(false);
                 }
             }
         }
     }
-    Ok(())
 }
 
 async fn handle_ws_event(
     event: Option<Result<Message, tokio_tungstenite::tungstenite::Error>>,
-    responder: RespondHandler,
+    tx: Sender<Message>,
 ) -> Result<bool> {
     if let Some(event) = event {
         match event {
-            Ok(ws_msg) => match handle_msg(ws_msg, responder).await {
+            Ok(ws_msg) => match handle_msg(ws_msg, tx).await {
                 Ok(c) => Ok(c),
                 Err(e) => {
                     error!("Failed to handle message: {}", e);
@@ -184,7 +187,7 @@ async fn handle_ws_event(
     }
 }
 
-async fn handle_msg(ws_msg: Message, responder: RespondHandler) -> Result<bool> {
+async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<bool> {
     debug!("Received message: {:?}", ws_msg);
     match ws_msg {
         Message::Text(msg) => {
@@ -194,7 +197,7 @@ async fn handle_msg(ws_msg: Message, responder: RespondHandler) -> Result<bool> 
                     info!("Received event: {:?}", event_msg);
                     let ctx = Context {
                         request: event_msg.request,
-                        responder,
+                        tx,
                     };
                     tokio::spawn(async move {
                         if let Err(e) = handle_event(ctx).await {
@@ -204,8 +207,8 @@ async fn handle_msg(ws_msg: Message, responder: RespondHandler) -> Result<bool> 
                 }
                 Err(err) => {
                     error!("Failed to parse message: {}", err);
-                    if let Err(e) = responder
-                        .respond(Message::Text(
+                    if let Err(e) = tx
+                        .send(Message::Text(
                             AgentMessage {
                                 response: Some(AgentResponse {
                                     id: u64::MAX,
@@ -228,10 +231,13 @@ async fn handle_msg(ws_msg: Message, responder: RespondHandler) -> Result<bool> 
         }
         Message::Ping(f) => {
             trace!("Received Ping frame");
-            responder.pong(f).await?;
+            tx.send(Message::Pong(f)).await?;
         }
         Message::Pong(_) => trace!("Received Pong frame"),
-        Message::Close(_) => warn!("Connection is closing"),
+        Message::Close(e) => {
+            warn!("Connection is closing: {:?}", e);
+            tx.send(Message::Close(None)).await?;
+        }
         Message::Frame(_) => warn!("Received a malformed message from controller, ignored",),
     }
     Ok(true)

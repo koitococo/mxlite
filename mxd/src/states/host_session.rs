@@ -10,8 +10,7 @@ use common::{
 use log::{debug, warn};
 use serde::Serialize;
 use tokio::sync::{
-    Mutex,
-    mpsc::{self, Receiver, Sender, error::SendError},
+    mpsc::{self, error::SendError, Receiver, Sender}, Mutex, Notify
 };
 
 use crate::server::SocketConnectInfo;
@@ -24,21 +23,11 @@ pub(crate) enum TaskState {
 
 #[derive(Serialize, Debug, Clone)]
 pub(crate) struct ExtraInfo {
-    pub(crate) socket_info: Option<SocketConnectInfo>,
-    pub(crate) controller_url: Option<String>,
-    pub(crate) system_info: Option<SystemInfo>,
-    pub(crate) envs: Option<Vec<String>>,
-}
-
-impl ExtraInfo {
-    pub(crate) fn new() -> Self {
-        ExtraInfo {
-            socket_info: None,
-            controller_url: None,
-            system_info: None,
-            envs: None,
-        }
-    }
+    pub(crate) socket_info: SocketConnectInfo,
+    pub(crate) controller_url: String,
+    pub(crate) system_info: SystemInfo,
+    pub(crate) envs: Vec<String>,
+    pub(crate) session_id: String,
 }
 
 pub(crate) struct HostSession {
@@ -47,19 +36,21 @@ pub(crate) struct HostSession {
     tx: Sender<ControllerMessage>,
     rx: Mutex<Receiver<ControllerMessage>>,
     tasks: SimpleMailbox<u64, TaskState>,
-    pub(crate) extra: Mutex<ExtraInfo>,
+    pub(crate) extra: ExtraInfo,
+    pub(crate) notify: Notify
 }
 
 impl HostSession {
-    pub(crate) fn new(host_id: String, session_id: String) -> Self {
+    pub(crate) fn new(host_id: String, extra: ExtraInfo) -> Self {
         let (tx, rx) = mpsc::channel(32);
         HostSession {
             host_id,
-            session_id,
+            session_id: extra.session_id.clone(),
             tx,
             rx: Mutex::new(rx),
             tasks: SimpleMailbox::new(),
-            extra: Mutex::new(ExtraInfo::new()),
+            extra,
+            notify: Notify::new()
         }
     }
 
@@ -89,7 +80,7 @@ impl HostSession {
     }
 
     pub(crate) fn set_task_finished(&self, id: u64, resp: AgentResponse) {
-        if ! self.tasks.send(id, TaskState::Finished(resp)) {
+        if !self.tasks.send(id, TaskState::Finished(resp)) {
             warn!("Failed to set task state for id: {}", id);
         }
     }
@@ -106,33 +97,26 @@ impl HostSessionStorage {
         Self(AtomticStateStorage::new())
     }
 
-    pub(crate) async fn get_session(
+    pub(crate) fn create_session(
         &self,
         host_id: &String,
-        session_id: &String,
+        extra: ExtraInfo,
     ) -> Option<Arc<HostSession>> {
-        if self.0.has(host_id) {} else {
-            self.0
-                .set(host_id.to_string(), HostSession::new(host_id.to_string(), session_id.to_string()));
-        }
-        self.0.get(host_id)
+        self.0.try_insert_deferred_returning(host_id.clone(), || {
+            HostSession::new(host_id.to_string(), extra)
+        })
     }
 
-    pub(crate) async fn remove_session(&self, id: &String) {
+    pub(crate) fn remove(&self, id: &String) {
         self.0.remove(id);
     }
 
-    pub(crate) async fn list_sessions(&self) -> Vec<String> {
+    pub(crate) fn list(&self) -> Vec<String> {
         self.0.list()
     }
 
-    pub(crate) async fn get_extra_info(&self, id: &String) -> Option<ExtraInfo> {
-        if let Some(session) = self.0.get(id) {
-            let guard = session.extra.lock().await;
-            Some(guard.clone())
-        } else {
-            None
-        }
+    pub(crate) fn get(&self, id: &String) -> Option<Arc<HostSession>> {
+        self.0.get(id)
     }
 
     pub(crate) async fn send_req(

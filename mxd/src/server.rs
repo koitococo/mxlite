@@ -2,6 +2,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Result, anyhow};
@@ -24,13 +25,16 @@ use common::protocol::{
 use futures_util::SinkExt;
 use log::{debug, error, info, warn};
 use serde::Serialize;
-use tokio::{net::TcpListener, select};
+use tokio::{net::TcpListener, select, time::sleep};
 use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
 
 use crate::{
     StartupArguments, api, srv,
-    states::{AppState, SharedAppState, host_session::HostSession},
+    states::{
+        AppState, SharedAppState,
+        host_session::{ExtraInfo, HostSession},
+    },
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -101,7 +105,7 @@ async fn lifetime_helper(_app: SharedAppState, halt_signal: CancellationToken) {
                 debug!("lifetime helper is shutting down");
                 break;
             }
-            _ = tokio::time::sleep(tokio::time::Duration::from_secs(15)) => {
+            _ = sleep(Duration::from_secs(15)) => {
                 // trace!("Performing periodic tasks");
                 // helper_heartbeat(app.clone()).await;
             }
@@ -152,6 +156,7 @@ async fn handle_ws_inner(
         } else {
             info!("WebSocket connection closed for id: {}", params.host_id);
         }
+        app.host_session.remove(&params.host_id); // usually it should remove the closing session
     }))
 }
 
@@ -163,11 +168,19 @@ async fn handle_socket(
     app: SharedAppState,
     ct: CancellationToken,
 ) -> Result<()> {
-    info!("WebSocket connection for id: {}", params.host_id);
+    info!("WebSocket connection for id: {} {}", params.host_id, params.session_id);
     let session = app
         .host_session
-        .get_session(&params.host_id, &params.session_id)
-        .await
+        .create_session(
+            &params.host_id,
+            ExtraInfo {
+                socket_info,
+                controller_url: params.controller_url,
+                system_info: params.system_info,
+                envs: params.envs,
+                session_id: params.session_id.clone(),
+            },
+        )
         .ok_or(anyhow::anyhow!(
             "Failed to obtain session for id: {}",
             params.host_id
@@ -177,31 +190,31 @@ async fn handle_socket(
             "Session ID mismatch: expected {}, got {}",
             session.session_id, params.session_id
         );
-        app.host_session.remove_session(&params.host_id).await;
+        session.notify.notify_waiters();
         return Err(anyhow!("Session ID mismatch"));
     }
-    {
-        let mut lock = session.extra.lock().await;
-        lock.socket_info = Some(socket_info);
-        lock.controller_url = Some(params.controller_url);
-        lock.system_info = Some(params.system_info);
-        lock.envs = Some(params.envs);
-    }
-
+    let mut last_seen = Instant::now();
     loop {
         select! {
             _ = ct.cancelled() => {
-                info!("WebSocket connection cancelled for id: {}", params.host_id);
+                warn!("WebSocket connection cancelled for id: {}", params.host_id);
+                break;
+            }
+            _ = session.notify.notified() => {
+                info!("Session notified for id: {}", params.host_id);
                 break;
             }
             req = session.recv_req() => {
                 if let Some(req) = req {
+                    debug!("Sending request: {:?}", req);
                     ws.send(req.to_string().into()).await?;
                 } else {
+                    info!("Internal channel closed for id: {}", params.host_id);
                     break;
                 }
             }
             r = handle_ws_recv(&mut ws, session.clone()) => {
+                last_seen = Instant::now();
                 match r {
                     Ok(true) => continue,
                     Ok(false) => break,
@@ -210,7 +223,14 @@ async fn handle_socket(
                     }
                 }
             }
-            _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
+            _ = sleep(Duration::from_secs(15)) => {
+                if last_seen.elapsed() > Duration::from_secs(20) {
+                    warn!("WebSocket connection timed out for id: {}", params.host_id);
+                }
+                if last_seen.elapsed() > Duration::from_secs(60) {
+                    error!("WebSocket connection closed due to inactivity for id: {}", params.host_id);
+                    break;
+                }
                 if let Err(e) = ws.send(Message::Ping("ping".into())).await {
                     error!("Failed to send ping: {}", e);
                     break;
@@ -219,14 +239,12 @@ async fn handle_socket(
         }
     }
 
-    app.host_session.remove_session(&params.host_id).await; // usually it should remove the closing session
     ws.close().await?;
     Ok(())
 }
 
 async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result<bool> {
-    let msg = ws.recv().await;
-    if let Some(msg) = msg {
+    if let Some(msg) = ws.recv().await {
         let msg = msg?;
         match msg {
             Message::Text(data) => {
@@ -240,6 +258,7 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
             Message::Ping(_) | Message::Pong(_) => Ok(true), // handled by underlying library
         }
     } else {
+        warn!("WebSocket connection closed");
         Ok(false)
     }
 }

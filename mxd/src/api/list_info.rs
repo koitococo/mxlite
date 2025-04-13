@@ -19,12 +19,11 @@ pub(super) struct GetResponse {
 pub(super) async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
     let hosts = join_all(
         app.host_session
-            .list_sessions()
-            .await
+            .list()
             .iter()
             .map(async |s| GetRespInner {
                 host: s.clone(),
-                info: app.host_session.get_extra_info(s).await,
+                info: app.host_session.get(s).map(|s| s.extra.clone()),
             }),
     )
     .await;

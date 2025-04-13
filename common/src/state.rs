@@ -1,23 +1,19 @@
 use std::{
     collections::{BTreeMap, btree_map::Entry},
+    fmt::Debug,
     sync::{Arc, RwLock},
 };
 
 pub trait StateStorage<Key, State> {
     fn new() -> Self;
-    fn set(&self, key: Key, item: State);
+    fn insert(&self, key: Key, item: State);
     fn get(&self, key: &Key) -> Option<Arc<State>>;
     fn remove(&self, key: &Key);
     fn list(&self) -> Vec<Key>;
-    fn has(&self, key: &Key) -> bool;
-    fn add(&self, key: Key, item: State) -> bool;
-    fn replace(&self, key: Key, item: State) -> bool;
+    fn contains(&self, key: &Key) -> bool;
     fn map<F>(&self, key: Key, f: F) -> bool
     where
         F: FnOnce(&State) -> Option<State>;
-    // fn map_async<F>(&self, key: Key, f: F) -> impl Future<Output = bool>
-    // where
-    //     F: AsyncFnOnce(&State) -> Option<State>;
 }
 
 #[derive(Clone)]
@@ -25,14 +21,14 @@ pub struct AtomticStateStorage<Key, State> {
     _inner: Arc<RwLock<BTreeMap<Key, Arc<State>>>>,
 }
 
-impl<Key: Ord + Clone, State> StateStorage<Key, State> for AtomticStateStorage<Key, State> {
+impl<Key: Ord + Clone + Debug, State> StateStorage<Key, State> for AtomticStateStorage<Key, State> {
     fn new() -> Self {
         AtomticStateStorage {
             _inner: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
-    fn set(&self, key: Key, item: State) {
+    fn insert(&self, key: Key, item: State) {
         let guard = self._inner.write();
         if guard.is_err() {
             return;
@@ -68,7 +64,7 @@ impl<Key: Ord + Clone, State> StateStorage<Key, State> for AtomticStateStorage<K
         guard.keys().cloned().collect()
     }
 
-    fn has(&self, key: &Key) -> bool {
+    fn contains(&self, key: &Key) -> bool {
         let guard = self._inner.read();
         if guard.is_err() {
             return false;
@@ -77,64 +73,39 @@ impl<Key: Ord + Clone, State> StateStorage<Key, State> for AtomticStateStorage<K
         guard.contains_key(key)
     }
 
-    fn add(&self, key: Key, item: State) -> bool {
-        let guard = self._inner.write();
-        if guard.is_err() {
-            return false;
-        }
-        let mut guard = guard.unwrap();
-        if guard.contains_key(&key) {
-            return false;
-        }
-        guard.insert(key, Arc::new(item));
-        true
-    }
-
-    fn replace(&self, key: Key, item: State) -> bool {
-        let guard = self._inner.write();
-        if guard.is_err() {
-            return false;
-        }
-        let mut guard = guard.unwrap();
-        if let Entry::Occupied(mut e) = guard.entry(key) {
-            e.insert(Arc::new(item));
-            true
-        } else {
-            false
-        }
-    }
-
     fn map<F>(&self, key: Key, f: F) -> bool
     where
         F: FnOnce(&State) -> Option<State>,
     {
+        if let Ok(mut guard) = self._inner.write() {
+            if let Entry::Occupied(mut e) = guard.entry(key) {
+                if let Some(new_val) = f(e.get()) {
+                    e.insert(Arc::new(new_val));
+                }
+                return true;
+            }
+        }
+        false
+    }
+}
+
+impl<Key: Ord + Clone, State> AtomticStateStorage<Key, State> {
+    pub fn try_insert_deferred_returning<F>(&self, key: Key, f: F) -> Option<Arc<State>>
+    where
+        F: FnOnce() -> State,
+    {
         let guard = self._inner.write();
         if guard.is_err() {
-            return false;
+            return None;
         }
         let mut guard = guard.unwrap();
-        if let Entry::Occupied(mut e) = guard.entry(key) {
-            if let Some(new_val) = f(e.get()) {
-                e.insert(Arc::new(new_val));
+        match guard.entry(key) {
+            Entry::Vacant(vacant_entry) => {
+                let val = Arc::new(f());
+                vacant_entry.insert(val.clone());
+                Some(val)
             }
-            true
-        } else {
-            false
+            Entry::Occupied(occupied_entry) => Some(occupied_entry.get().clone()),
         }
     }
-
-    // fn map_async<F>(&self, key: Key, f: F) -> bool
-    // where
-    //     F: AsyncFnOnce(&State) -> Option<State>,
-    // {
-    //     let mut guard = self._inner.write();
-    //     if let Entry::Occupied(mut e) = guard.entry(key) {
-    //         if let Some(new_val) = f(e.get()) {
-    //             e.insert(Arc::new(new_val));
-    //         }
-    //         true
-    //     } else {
-    //         false
-    //     }
-    // }
 }
