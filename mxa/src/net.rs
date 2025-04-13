@@ -140,7 +140,10 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<b
             msg = rx.next() => {
                 match handle_ws_event(msg, tx_tx.clone()).await {
                     Ok(c) => {
-                        break Ok(!c)
+                        if c {
+                            info!("WebSocket event loop exited");
+                            break Ok(true);
+                        }
                     }
                     Err(e) => {
                         error!("Failed to handle WebSocket event: {}", e);
@@ -183,7 +186,7 @@ async fn handle_ws_event(
             }
         }
     } else {
-        Ok(false)
+        Ok(true)
     }
 }
 
@@ -237,8 +240,9 @@ async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<bool> {
         Message::Close(e) => {
             warn!("Connection is closing: {:?}", e);
             tx.send(Message::Close(None)).await?;
+            return Ok(true)
         }
         Message::Frame(_) => warn!("Received a malformed message from controller, ignored",),
     }
-    Ok(true)
+    Ok(false)
 }
