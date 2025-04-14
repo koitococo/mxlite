@@ -145,8 +145,8 @@ pub(crate) async fn handle_ws_url(
                             continue;
                         }
                         Ok(exit) => {
-                            info!("Exiting connection loop");
                             if exit {
+                                info!("Exiting connection loop");
                                 return Ok(true);
                             }
                         }
@@ -193,8 +193,8 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<b
                     Ok(c) => {
                         if c {
                             info!("WebSocket event loop exited");
+                                break Ok(c);
                         }
-                        break Ok(c);
                     }
                     Err(e) => {
                         error!("Failed to handle WebSocket event: {}", e);
