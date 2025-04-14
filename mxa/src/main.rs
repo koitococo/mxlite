@@ -1,6 +1,5 @@
-use anyhow::{Result, anyhow};
-use discovery::discover_controller;
-use log::{LevelFilter, error, info, warn};
+use anyhow::Result;
+use log::{LevelFilter, error, info};
 use utils::random_str;
 
 mod discovery;
@@ -41,24 +40,7 @@ async fn main() -> Result<()> {
         .collect::<Vec<_>>();
 
     loop {
-        let ws_url = match std::env::var("MXD_URL") {
-            Ok(url) => url,
-            Err(_) => {
-                let controllers = match discover_controller().await {
-                    Ok(c) => c,
-                    Err(err) => {
-                        error!("Failed to discover controller: {}", err);
-                        std::process::exit(1);
-                    }
-                };
-                if controllers.is_empty() {
-                    warn!("No controller discovered");
-                    return Err(anyhow!("Failed to discover controller"));
-                } else {
-                    controllers[0].clone()
-                }
-            }
-        };
+        let ws_url = std::env::var("MXD_URL").ok();
         match net::handle_ws_url(
             ws_url.clone(),
             host_id.clone(),

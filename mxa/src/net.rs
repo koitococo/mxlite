@@ -31,7 +31,7 @@ use tokio_tungstenite::{
     },
 };
 
-use crate::executor::handle_event;
+use crate::{discovery::discover_controller, executor::handle_event};
 
 pub(crate) struct Context {
     pub(crate) request: ControllerRequest,
@@ -73,14 +73,43 @@ async fn safe_sleep(duration: u64) -> bool {
 }
 
 pub(crate) async fn handle_ws_url(
-    ws_url: String,
+    env_ws_url: Option<String>,
     host_id: String,
     session_id: String,
     envs: Vec<String>,
 ) -> Result<bool> {
-    info!("Use Controller URL: {}", &ws_url);
     loop {
+        let ws_url = if let Some(env_ws_url) = env_ws_url.clone() {
+            info!(
+                "Using controller URL from environment variable: {}",
+                &env_ws_url
+            );
+            env_ws_url
+        } else {
+            info!("Discovering controller URL...");
+            let discovery_response = select! {
+                r = discover_controller() => r,
+                _ = tokio::signal::ctrl_c() => {
+                    info!("Received Ctrl-C, canceling discovery and exit");
+                    return Ok(true);
+                }
+            };
+            let controllers = match discovery_response {
+                Ok(c) => c,
+                Err(err) => {
+                    error!("Failed to discover controller: {}", err);
+                    std::process::exit(1);
+                }
+            };
+            if controllers.is_empty() {
+                warn!("No controller discovered");
+                return Err(anyhow!("Failed to discover controller"));
+            } else {
+                controllers[0].clone()
+            }
+        };
         info!("Connecting to controller websocket: {}", &ws_url);
+
         let mut req = ws_url.clone().into_client_request()?;
         req.headers_mut().insert(
             CONNECT_HANDSHAKE_HEADER_KEY,
@@ -95,6 +124,7 @@ pub(crate) async fn handle_ws_url(
             .to_string()
             .parse()?,
         );
+
         let mut retry = 0;
         while retry < 5 {
             match connect_async_with_config(
@@ -115,8 +145,8 @@ pub(crate) async fn handle_ws_url(
                             continue;
                         }
                         Ok(exit) => {
+                            info!("Exiting connection loop");
                             if exit {
-                                info!("Exiting connection loop");
                                 return Ok(true);
                             }
                         }
