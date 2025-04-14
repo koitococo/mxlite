@@ -9,9 +9,9 @@ use common::{
             ControllerRequest,
             PROTOCOL_VERSION,
         },
-        handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+        handshake::{ConnectHandshake, CONNECT_HANDSHAKE_HEADER_KEY},
     },
-    system_info::SystemInfo,
+    system_info::{self},
 };
 use std::str::FromStr;
 use tokio::{
@@ -119,7 +119,7 @@ pub(crate) async fn handle_ws_url(
                 host_id: host_id.clone(),
                 session_id: session_id.clone(),
                 envs: envs.clone(),
-                system_info: SystemInfo::collect_info(),
+                system_info: system_info::collect_info(),
             })
             .to_string()
             .parse()?,

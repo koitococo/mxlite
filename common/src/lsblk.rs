@@ -1,3 +1,4 @@
+#[cfg(target_os = "linux")]
 use std::{
     fs::read_dir,
     io::{self, Read},
@@ -22,6 +23,8 @@ pub struct BlkInfo {
     pub subsystem: Option<String>,   // subsystem of the device, e.g., nvme, scsi
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn lsdir(path: &str) -> Result<Vec<String>, io::Error> {
     Ok(read_dir(path)?
         .filter_map(|entry| match entry {
@@ -31,6 +34,8 @@ fn lsdir(path: &str) -> Result<Vec<String>, io::Error> {
         .collect())
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn read_str(path: &str) -> Result<String, io::Error> {
     let mut file = std::fs::File::open(path)?;
     let mut contents = String::new();
@@ -38,6 +43,8 @@ fn read_str(path: &str) -> Result<String, io::Error> {
     Ok(contents.trim().to_string())
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn read_str_optional(path: &str) -> Result<Option<String>, io::Error> {
     match read_str(path) {
         Ok(contents) => Ok(Some(contents)),
@@ -46,6 +53,8 @@ fn read_str_optional(path: &str) -> Result<Option<String>, io::Error> {
     }
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn read_int(path: &str) -> Result<u64, io::Error> {
     let content = read_str(path)?;
     match content.parse::<u64>() {
@@ -57,18 +66,21 @@ fn read_int(path: &str) -> Result<u64, io::Error> {
     }
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn read_bool(path: &str) -> Result<bool, io::Error> {
     Ok(read_int(path)? != 0)
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn read_list(path: &str) -> Result<Vec<String>, io::Error> {
     let contents = read_str(path)?;
-    Ok(contents
-        .split_whitespace()
-        .map(|s| s.to_string())
-        .collect())
+    Ok(contents.split_whitespace().map(|s| s.to_string()).collect())
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn read_kv(path: &str) -> Result<Vec<(String, String)>, io::Error> {
     read_list(path).map(|list| {
         list.into_iter()
@@ -84,6 +96,8 @@ fn read_kv(path: &str) -> Result<Vec<(String, String)>, io::Error> {
     })
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn checked_path(path: &str) -> Result<String, io::Error> {
     if std::fs::exists(path)? {
         Ok(path.to_string())
@@ -95,6 +109,8 @@ fn checked_path(path: &str) -> Result<String, io::Error> {
     }
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn read_symlink(path: &str) -> Result<String, io::Error> {
     let symlink = std::fs::canonicalize(path).map_err(|e| {
         io::Error::new(
@@ -105,6 +121,8 @@ fn read_symlink(path: &str) -> Result<String, io::Error> {
     Ok(symlink.to_string_lossy().to_string())
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn create_root_blk_info(blk_name: &str) -> Result<BlkInfo, io::Error> {
     let maj_min = read_str(format!("/sys/block/{}/dev", blk_name).as_str())?;
     let disk_seq = read_int(format!("/sys/block/{}/diskseq", blk_name).as_str())?;
@@ -140,10 +158,13 @@ fn create_root_blk_info(blk_name: &str) -> Result<BlkInfo, io::Error> {
     })
 }
 
+#[cfg(target_os = "linux")]
+#[inline]
 fn ls_root_blks() -> Result<Vec<String>, io::Error> {
     lsdir("/sys/block")
 }
 
+#[cfg(target_os = "linux")]
 pub fn get_blk_info() -> Vec<BlkInfo> {
     ls_root_blks()
         .map(|blks| {
