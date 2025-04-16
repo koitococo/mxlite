@@ -8,17 +8,63 @@ use serde::{Deserialize, Serialize};
 use crate::states::SharedAppState;
 
 #[derive(Deserialize)]
-pub(super) struct PostRequest {
+struct PostRequestMapInner {
   path: String,
-  publish_name: String,
+  name: String,
+  isdir: Option<bool>,
 }
 
-pub(super) async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> (StatusCode, Json<String>) {
-  if let Err(e) = app.file_map.add_file_map(params.path, params.publish_name).await {
-    (StatusCode::INTERNAL_SERVER_ERROR, Json(e))
-  } else {
-    (StatusCode::OK, Json("File map added successfully".to_string()))
+#[derive(Deserialize)]
+pub(super) struct PostRequest {
+  maps: Vec<PostRequestMapInner>,
+}
+
+#[derive(Serialize)]
+struct PostResponseErrInner {
+  ok: bool,
+  err: Option<String>,
+  name: String,
+}
+
+#[derive(Serialize)]
+pub(super) struct PostResponse {
+  result: Vec<PostResponseErrInner>,
+}
+
+pub(super) async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> Json<PostResponse> {
+  let mut result = Vec::with_capacity(params.maps.len());
+  for map in params.maps {
+    if map.isdir.unwrap_or(false) {
+      if let Err(e) = app.file_map.add_dir_map(map.path, map.name.clone()) {
+        result.push(PostResponseErrInner {
+          ok: false,
+          err: Some(e),
+          name: map.name,
+        });
+      } else {
+        result.push(PostResponseErrInner {
+          ok: true,
+          err: None,
+          name: map.name,
+        });
+      }
+    } else {
+      if let Err(e) = app.file_map.add_file_map(map.path, map.name.clone()) {
+        result.push(PostResponseErrInner {
+          ok: false,
+          err: Some(e),
+          name: map.name,
+        });
+      } else {
+        result.push(PostResponseErrInner {
+          ok: true,
+          err: None,
+          name: map.name,
+        });
+      }
+    }
   }
+  Json(PostResponse { result })
 }
 
 #[derive(Serialize)]
@@ -28,7 +74,7 @@ pub(super) struct GetResponse {
 
 pub(super) async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
   Json(GetResponse {
-    files: app.file_map.get_all_files(),
+    files: app.file_map.list_map(),
   })
 }
 
@@ -38,6 +84,6 @@ pub(super) struct DeleteRequest {
 }
 
 pub(super) async fn delete(State(app): State<SharedAppState>, Query(params): Query<DeleteRequest>) -> StatusCode {
-  app.file_map.del_file_map(&params.publish_name);
+  app.file_map.del_map(&params.publish_name);
   StatusCode::OK
 }
