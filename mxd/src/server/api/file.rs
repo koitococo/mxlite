@@ -1,4 +1,4 @@
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::method_routing};
 use common::protocol::controller::{self, ControllerRequest, ControllerRequestPayload, FileTransferRequest, PROTOCOL_VERSION};
 use serde::Deserialize;
 
@@ -8,20 +8,20 @@ use super::{SendReqResponse, send_req_helper};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub(super) enum FileOperation {
+enum FileOperation {
   Download,
   Upload,
 }
 
 #[derive(Deserialize)]
-pub(super) struct PostRequest {
+struct PostRequest {
   url: String,
   path: String,
   host: String,
   op: FileOperation,
 }
 
-pub(super) async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> (StatusCode, Json<SendReqResponse>) {
+async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> (StatusCode, Json<SendReqResponse>) {
   send_req_helper(
     app,
     params.host,
@@ -40,3 +40,5 @@ pub(super) async fn post(State(app): State<SharedAppState>, Json(params): Json<P
   )
   .await
 }
+
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> { Router::new().with_state(app.clone()).route("/", method_routing::post(post)) }

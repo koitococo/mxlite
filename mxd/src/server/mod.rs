@@ -30,12 +30,16 @@ use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
 
 use crate::{
-  StartupArguments, api, srv,
+  StartupArguments,
   states::{
     AppState, SharedAppState,
     host_session::{ExtraInfo, HostSession},
   },
 };
+
+mod api;
+mod srv;
+mod utils;
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct SocketConnectInfo {

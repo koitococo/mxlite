@@ -1,7 +1,5 @@
 use axum::{
-  Json,
-  extract::{Query, State},
-  http::StatusCode,
+  extract::{Query, State}, http::StatusCode, routing::method_routing, Json, Router
 };
 use common::protocol::controller::AgentResponse;
 use serde::{Deserialize, Serialize};
@@ -11,19 +9,19 @@ use crate::states::{SharedAppState, host_session::TaskState};
 use super::{ERR_REASON_SESSION_NOT_FOUND, ERR_REASON_TASK_NOT_COMPLETED, ERR_REASON_TASK_NOT_FOUND};
 
 #[derive(Deserialize)]
-pub(super) struct GetParams {
+struct GetParams {
   host: String,
   task_id: u64,
 }
 
 #[derive(Serialize)]
-pub(super) struct GetResponse {
+struct GetResponse {
   ok: bool,
   payload: Option<AgentResponse>,
   reason: Option<String>,
 }
 
-pub(super) async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (StatusCode, Json<GetResponse>) {
+async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (StatusCode, Json<GetResponse>) {
   if let Some(state) = app.host_session.get_resp(&params.host, params.task_id).await {
     if let Some(state) = state {
       if let TaskState::Finished(resp) = state {
@@ -66,3 +64,5 @@ pub(super) async fn get(State(app): State<SharedAppState>, params: Query<GetPara
     )
   }
 }
+
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> { Router::new().with_state(app.clone()).route("/", method_routing::get(get)) }

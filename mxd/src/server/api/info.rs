@@ -1,25 +1,23 @@
 use axum::{
-  Json,
-  extract::{Query, State},
-  http::StatusCode,
+  extract::{Query, State}, http::StatusCode, routing::method_routing, Json, Router
 };
 use serde::{Deserialize, Serialize};
 
 use crate::states::{SharedAppState, host_session::ExtraInfo};
 
 #[derive(Deserialize)]
-pub(super) struct GetParams {
+struct GetParams {
   host: String,
 }
 
 #[derive(Serialize)]
-pub(super) struct GetResponse {
+struct GetResponse {
   ok: bool,
   host: String,
   info: Option<ExtraInfo>,
 }
 
-pub(super) async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (StatusCode, Json<GetResponse>) {
+async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (StatusCode, Json<GetResponse>) {
   if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
     (
       StatusCode::OK,
@@ -40,3 +38,5 @@ pub(super) async fn get(State(app): State<SharedAppState>, params: Query<GetPara
     )
   }
 }
+
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> { Router::new().with_state(app.clone()).route("/", method_routing::get(get)) }

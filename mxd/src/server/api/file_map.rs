@@ -1,7 +1,8 @@
 use axum::{
-  Json,
+  Json, Router,
   extract::{Query, State},
   http::StatusCode,
+  routing::method_routing,
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +16,7 @@ struct PostRequestMapInner {
 }
 
 #[derive(Deserialize)]
-pub(super) struct PostRequest {
+struct PostRequest {
   maps: Vec<PostRequestMapInner>,
 }
 
@@ -27,11 +28,11 @@ struct PostResponseErrInner {
 }
 
 #[derive(Serialize)]
-pub(super) struct PostResponse {
+struct PostResponse {
   result: Vec<PostResponseErrInner>,
 }
 
-pub(super) async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> Json<PostResponse> {
+async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> Json<PostResponse> {
   let mut result = Vec::with_capacity(params.maps.len());
   for map in params.maps {
     if map.isdir.unwrap_or(false) {
@@ -68,22 +69,26 @@ pub(super) async fn post(State(app): State<SharedAppState>, Json(params): Json<P
 }
 
 #[derive(Serialize)]
-pub(super) struct GetResponse {
+struct GetResponse {
   files: Vec<String>,
 }
 
-pub(super) async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
+async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
   Json(GetResponse {
     files: app.file_map.list_map(),
   })
 }
 
 #[derive(Deserialize)]
-pub(super) struct DeleteRequest {
+struct DeleteRequest {
   publish_name: String,
 }
 
-pub(super) async fn delete(State(app): State<SharedAppState>, Query(params): Query<DeleteRequest>) -> StatusCode {
+async fn delete(State(app): State<SharedAppState>, Query(params): Query<DeleteRequest>) -> StatusCode {
   app.file_map.del_map(&params.publish_name);
   StatusCode::OK
+}
+
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
+  Router::new().with_state(app.clone()).route("/", method_routing::get(get).post(post).delete(delete))
 }

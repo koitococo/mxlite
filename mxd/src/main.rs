@@ -2,10 +2,8 @@ use anyhow::Result;
 use clap::Parser;
 use log::{LevelFilter, info};
 
-mod api;
 mod discovery;
 mod server;
-mod srv;
 mod states;
 
 #[derive(Parser)]
