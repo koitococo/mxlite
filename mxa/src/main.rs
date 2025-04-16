@@ -2,7 +2,6 @@ use anyhow::Result;
 use log::{LevelFilter, error, info};
 use utils::random_str;
 
-mod discovery;
 mod executor;
 mod net;
 mod utils;

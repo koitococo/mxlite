@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use log::{LevelFilter, info};
+use log::{info, warn, LevelFilter};
 
 mod discovery;
 mod server;
@@ -9,24 +9,28 @@ mod states;
 #[derive(Parser)]
 struct Cli {
   /// Port to listen on
-  #[clap(short, long, env = "MXD_PORT", default_value = "8080")]
+  #[clap(short = 'p', long, env = "MXD_PORT", default_value = "8080")]
   port: u16,
 
   /// API key for authentication
-  #[clap(short, long, env = "MXD_APIKEY")]
+  #[clap(short = 'k', long, env = "MXD_APIKEY")]
   apikey: Option<String>,
 
   /// Path to static files
-  #[clap(short, long, env = "MXD_STATIC_PATH")]
+  #[clap(short = 's', long, env = "MXD_STATIC_PATH")]
   static_path: Option<String>,
 
   /// Enable discovery
-  #[clap(short, long, env = "MXD_DISCOVERY", default_value = "false")]
+  #[clap(short = 'd', long, env = "MXD_DISCOVERY", default_value = "false")]
   disable_discovery: bool,
 
   /// Enable verbose logging
-  #[clap(short, long, default_value = "false")]
+  #[clap(short = 'v', long, default_value = "false")]
   verbose: bool,
+
+  /// Detect other controllers
+  #[clap(short = 'D', long, default_value = "false")]
+  detect_others: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -53,6 +57,28 @@ async fn main() -> Result<()> {
     .init()?;
 
   info!("MetalX Controller - Launching");
+
+  if config.detect_others {
+    info!("Detecting other controllers...");
+    match common::discovery::discover_controller_once().await {
+      Err(common::discovery::DiscoveryError::NoControllerFound) => {
+        info!("No other controller found");
+      }
+      Ok(controllers) => {
+        warn!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+        warn!("Discovered {} controllers", controllers.len());
+        for controller in controllers {
+          warn!("Controller: {}", controller);
+        }
+        warn!("Please check if you are running multiple controllers on the same network");
+        warn!("This may cause conflicts and unexpected behavior");
+        warn!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+      }
+      Err(err) => {
+        log::error!("Failed to discover other controllers: {}", err);
+      }
+    }
+  }
 
   let discovery_ = if config.disable_discovery {
     None

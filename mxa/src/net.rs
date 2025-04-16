@@ -12,6 +12,7 @@ use common::{
     handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
   },
   system_info::{self},
+  discovery::discover_controller
 };
 use std::str::FromStr;
 use tokio::{
@@ -31,7 +32,7 @@ use tokio_tungstenite::{
   },
 };
 
-use crate::{discovery::discover_controller, executor::handle_event};
+use crate::executor::handle_event;
 
 pub(crate) struct Context {
   pub(crate) request: ControllerRequest,

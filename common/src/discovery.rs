@@ -1,5 +1,4 @@
-use anyhow::{Result, anyhow};
-use common::protocol::discovery::{DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE, PROTOCOL_REV};
+use crate::protocol::discovery::{DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE, PROTOCOL_REV};
 use futures_util::future::join_all;
 use log::{debug, error, info, warn};
 use reqwest::Url;
@@ -8,39 +7,63 @@ use std::{
   str::{self, FromStr},
   time::Duration,
 };
+use thiserror::Error;
 use tokio::{net::UdpSocket, select};
 
-pub async fn discover_controller() -> Result<Vec<String>> {
-  loop {
-    info!("Discovering controller");
-    let socket = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await?;
-    socket.set_broadcast(true)?;
+#[derive(Debug, Error)]
+pub enum DiscoveryError {
+  #[error("No controller found")]
+  NoControllerFound,
+  #[error("Io Error: {0}")]
+  IoError(#[from] std::io::Error),
+  #[error("Decode Error: {0}")]
+  DecodeError(#[from] std::str::Utf8Error),
+  #[error("Protocol Error: {0}")]
+  ProtocolError(&'static str),
+  #[error("Deserialization Error: {0}")]
+  DeserializationError(#[from] serde_json::Error),
+  #[error("Request Error: {0}")]
+  RequestError(#[from] reqwest::Error),
+}
 
-    let req = &DiscoveryRequest {
-      magic: MAGIC_REQUEST.to_string(),
-      revision: PROTOCOL_REV,
-    };
-    let req_str = req.to_string();
-    let req_bin = req_str.as_bytes();
-    for _ in 0..10 {
-      debug!("Sending discovery request: {}", req_str);
-      socket.send_to(req_bin, SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT)).await?;
-      select! {
-          _ = tokio::time::sleep(Duration::from_secs(3)) => {
-              info!("Discovery timeout");
-          }
-          r = recv_pack(&socket) => {
-              if let Some(wss) = handle_pack(r).await {
-                  return Ok(wss);
-              }
-          }
-      }
+pub async fn discover_controller() -> Result<Vec<String>, DiscoveryError> {
+  loop {
+    if let Ok(r) = discover_controller_once().await {
+      return Ok(r);
     }
-    warn!("No controller found");
   }
 }
 
-async fn recv_pack(socket: &UdpSocket) -> Result<DiscoveryResponse> {
+pub async fn discover_controller_once() -> Result<Vec<String>, DiscoveryError> {
+  info!("Discovering controller");
+  let socket = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await?;
+  socket.set_broadcast(true)?;
+
+  let req = &DiscoveryRequest {
+    magic: MAGIC_REQUEST.to_string(),
+    revision: PROTOCOL_REV,
+  };
+  let req_str = req.to_string();
+  let req_bin = req_str.as_bytes();
+  for _ in 0..10 {
+    debug!("Sending discovery request: {}", req_str);
+    socket.send_to(req_bin, SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT)).await?;
+    select! {
+        _ = tokio::time::sleep(Duration::from_secs(3)) => {
+            info!("Discovery timeout");
+        }
+        r = recv_pack(&socket) => {
+            if let Some(wss) = handle_pack(r).await {
+                return Ok(wss);
+            }
+        }
+    }
+  }
+  warn!("No controller found");
+  Err(DiscoveryError::NoControllerFound.into())
+}
+
+async fn recv_pack(socket: &UdpSocket) -> Result<DiscoveryResponse, DiscoveryError> {
   let mut buf = [0u8; 1024];
   match socket.recv_from(&mut buf).await {
     Ok((size, addr)) => {
@@ -51,7 +74,7 @@ async fn recv_pack(socket: &UdpSocket) -> Result<DiscoveryResponse> {
         Ok(resp)
       } else {
         error!("Invalid magic: {}", resp.magic);
-        Err(anyhow!("Invalid magic"))
+        Err(DiscoveryError::ProtocolError("Invalid magic"))
       }
     }
     Err(err) => {
@@ -61,7 +84,7 @@ async fn recv_pack(socket: &UdpSocket) -> Result<DiscoveryResponse> {
   }
 }
 
-async fn handle_pack(r: Result<DiscoveryResponse>) -> Option<Vec<String>> {
+async fn handle_pack(r: Result<DiscoveryResponse, DiscoveryError>) -> Option<Vec<String>> {
   match r {
     Ok(resp) => match handle_resp(resp).await {
       Ok(wss) => {
@@ -83,7 +106,7 @@ async fn handle_pack(r: Result<DiscoveryResponse>) -> Option<Vec<String>> {
   None
 }
 
-async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<String>> {
+async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<String>, DiscoveryError> {
   // let mut wss = Vec::new();
   // for ws in resp.ws {
   //     let mut url = Url::from_str(ws.as_str())?;
@@ -123,6 +146,6 @@ async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<String>> {
   Ok(ws2)
 }
 
-async fn http_ping(url: Url, timeout: u64) -> Result<bool> {
+async fn http_ping(url: Url, timeout: u64) -> Result<bool, DiscoveryError> {
   Ok(reqwest::Client::new().head(url).timeout(Duration::from_secs(timeout)).send().await?.status().is_success())
 }
