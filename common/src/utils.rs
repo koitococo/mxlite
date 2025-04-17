@@ -61,14 +61,17 @@ pub async fn digest_for_file(path: &str, mut hasher: Box<dyn DynDigest + Send + 
   Ok(lower::encode_str(&hash, buf.as_mut_slice()).map_err(HashError::Base16Error)?.to_string())
 }
 
+/// MD5 hash for a file
+pub async fn md5_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<md5::Md5 as digest::Digest>::new())).await }
+
 /// SHA1 hash for a file
-pub async fn sha1_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha1::Sha1 as sha1::Digest>::new())).await }
+pub async fn sha1_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha1::Sha1 as digest::Digest>::new())).await }
 
 /// SHA2-256 hash for a file
-pub async fn sha256_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha2::Sha256 as sha2::Digest>::new())).await }
+pub async fn sha256_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha2::Sha256 as digest::Digest>::new())).await }
 
 /// SHA3-512 hash for a file
-pub async fn sha512_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha3::Sha3_512 as sha3::Digest>::new())).await }
+pub async fn sha512_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha3::Sha3_512 as digest::Digest>::new())).await }
 
 pub async fn digests_for_file(path: &str, mut hashers: Vec<Box<dyn DynDigest + Send + Unpin>>) -> Result<Vec<String>, HashError> {
   let mut fd = File::open(path).await?;
@@ -102,9 +105,12 @@ pub async fn digests_for_file(path: &str, mut hashers: Vec<Box<dyn DynDigest + S
 }
 
 pub async fn sha_for_file(
-  path: &str, calc_sha1: bool, calc_sha256: bool, calc_sha512: bool,
-) -> Result<(Option<String>, Option<String>, Option<String>), HashError> {
+  path: &str, calc_md5: bool, calc_sha1: bool, calc_sha256: bool, calc_sha512: bool,
+) -> Result<(Option<String>, Option<String>, Option<String>, Option<String>), HashError> {
   let mut hashers: Vec<Box<dyn DynDigest + Send + Unpin>> = Vec::new();
+  if calc_md5 {
+    hashers.push(Box::new(<md5::Md5 as md5::Digest>::new()));
+  }
   if calc_sha1 {
     hashers.push(Box::new(<sha1::Sha1 as sha1::Digest>::new()));
   }
@@ -115,7 +121,11 @@ pub async fn sha_for_file(
     hashers.push(Box::new(<sha3::Sha3_512 as sha3::Digest>::new()));
   }
   let mut hashes = digests_for_file(path, hashers).await?;
-  let mut result: (Option<String>, Option<String>, Option<String>) = (None, None, None);
+  let mut result: (Option<String>, Option<String>, Option<String>, Option<String>) = (None, None, None, None);
+  if calc_md5 {
+    let hash = hashes.remove(0);
+    result.0 = Some(hash);
+  }
   if calc_sha1 {
     let hash = hashes.remove(0);
     result.0 = Some(hash);

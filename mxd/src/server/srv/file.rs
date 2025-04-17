@@ -36,6 +36,7 @@ macro_rules! add_header {
 #[derive(Deserialize)]
 struct GetFileParams {
   xxh3: Option<bool>,
+  md5: Option<bool>,
   sha1: Option<bool>,
   sha256: Option<bool>,
   sha512: Option<bool>,
@@ -119,6 +120,7 @@ async fn get_file(State(app): State<SharedAppState>, Path(name): Path<String>, Q
     .get_file_with_optional_props(
       &name,
       params.xxh3.unwrap_or(false),
+      params.md5.unwrap_or(false),
       params.sha1.unwrap_or(false),
       params.sha256.unwrap_or(false),
       params.sha512.unwrap_or(false),
@@ -143,6 +145,7 @@ async fn head_file(State(app): State<SharedAppState>, Path(name): Path<String>, 
     .get_file_with_optional_props(
       &name,
       params.xxh3.unwrap_or(false),
+      params.md5.unwrap_or(false),
       params.sha1.unwrap_or(false),
       params.sha256.unwrap_or(false),
       params.sha512.unwrap_or(false),
