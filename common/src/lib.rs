@@ -1,4 +1,3 @@
-pub mod lsblk;
 pub mod mailbox;
 pub mod protocol;
 pub mod state;
