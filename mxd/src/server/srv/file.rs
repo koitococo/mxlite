@@ -42,8 +42,8 @@ struct GetFileParams {
   sha512: Option<bool>,
 }
 
-async fn gen_file_response(file_path: &String, req: Request) -> (Response, bool) {
-  match File::open(file_path.clone()).await {
+async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
+  match File::open(file_path).await {
     Ok(file) => match file.metadata().await {
       Ok(meta) => {
         let mut builder = Response::builder();

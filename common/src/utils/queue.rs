@@ -28,3 +28,8 @@ impl<T> SimpleQueue<T> {
     SimpleQueue { _tx: tx, _rx: Mutex::new(rx) }
   }
 }
+
+
+impl<T> Default for SimpleQueue<T> {
+  fn default() -> Self { Self::new() }
+}

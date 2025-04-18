@@ -38,7 +38,7 @@ where Event: Ord
       .clone()
   }
 
-  pub async fn reset(&self, event: Event) -> () {
+  pub async fn reset(&self, event: Event) {
     let mut inner = self._inner.lock().await;
     if let Some(map) = inner.as_mut() {
       if let Entry::Occupied(e) = map.entry(event) {

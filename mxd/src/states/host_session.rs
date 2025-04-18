@@ -51,7 +51,7 @@ impl HostSession {
       session_id: extra.session_id.clone(),
       tx,
       rx: Mutex::new(rx),
-      tasks: SimpleMailbox::new(),
+      tasks: SimpleMailbox::new(128),
       extra,
       notify: Notify::new(),
     }

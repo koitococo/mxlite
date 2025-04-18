@@ -60,7 +60,7 @@ pub async fn discover_controller_once() -> Result<Vec<String>, DiscoveryError> {
     }
   }
   warn!("No controller found");
-  Err(DiscoveryError::NoControllerFound.into())
+  Err(DiscoveryError::NoControllerFound)
 }
 
 async fn recv_pack(socket: &UdpSocket) -> Result<DiscoveryResponse, DiscoveryError> {
@@ -107,21 +107,6 @@ async fn handle_pack(r: Result<DiscoveryResponse, DiscoveryError>) -> Option<Vec
 }
 
 async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<String>, DiscoveryError> {
-  // let mut wss = Vec::new();
-  // for ws in resp.ws {
-  //     let mut url = Url::from_str(ws.as_str())?;
-  //     if url.set_scheme("http").is_err() {
-  //         warn!("Invalid URL: {}", ws);
-  //         continue;
-  //     }
-  //     debug!("Pinging controller with url: {}", ws);
-  //     if let Err(e) = http_ping(url, 5).await {
-  //         warn!("Failed to ping controller: {}: {}", ws, e);
-  //         continue;
-  //     }
-  //     info!("Discovered controller: {}", ws);
-  //     wss.push(ws);
-  // }
   let ws2: Vec<String> = join_all(resp.ws.iter().map(async |ws: &String| -> Option<String> {
     if let Ok(mut url) = Url::from_str(ws.as_str()) {
       if url.set_scheme("http").is_err() {

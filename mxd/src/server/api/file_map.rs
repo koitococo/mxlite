@@ -49,20 +49,18 @@ async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>
           name: map.name,
         });
       }
+    } else if let Err(e) = app.file_map.add_file_map(map.path, map.name.clone()) {
+      result.push(PostResponseErrInner {
+        ok: false,
+        err: Some(e),
+        name: map.name,
+      });
     } else {
-      if let Err(e) = app.file_map.add_file_map(map.path, map.name.clone()) {
-        result.push(PostResponseErrInner {
-          ok: false,
-          err: Some(e),
-          name: map.name,
-        });
-      } else {
-        result.push(PostResponseErrInner {
-          ok: true,
-          err: None,
-          name: map.name,
-        });
-      }
+      result.push(PostResponseErrInner {
+        ok: true,
+        err: None,
+        name: map.name,
+      });
     }
   }
   Json(PostResponse { result })
