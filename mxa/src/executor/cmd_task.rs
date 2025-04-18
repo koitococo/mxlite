@@ -15,7 +15,10 @@ impl TaskHandler for ExecuteTask {
   async fn handle(self) -> Result<(bool, AgentResponsePayload)> {
     match execute_shell(&self.cmd, self.use_script_file).await {
       Ok((code, stdout, stderr)) => {
-        debug!("Command '{}' executed with code {}: {} {}", self.cmd, code, stdout, stderr);
+        debug!(
+          "Command '{}' executed with code {}: {} {}",
+          self.cmd, code, stdout, stderr
+        );
         Ok((
           true,
           AgentResponsePayload::CommandExecutionResponse(CommandExecutionResponse { code, stdout, stderr }),

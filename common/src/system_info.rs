@@ -213,13 +213,21 @@ mod linux {
       if std::fs::exists(path)? {
         Ok(path.to_string())
       } else {
-        Err(io::Error::new(io::ErrorKind::NotFound, format!("Path {} does not exist", path)))
+        Err(io::Error::new(
+          io::ErrorKind::NotFound,
+          format!("Path {} does not exist", path),
+        ))
       }
     }
 
     #[inline]
     fn read_symlink(path: &str) -> Result<String, io::Error> {
-      let symlink = std::fs::canonicalize(path).map_err(|e| io::Error::new(io::ErrorKind::NotFound, format!("Failed to read symlink {}: {}", path, e)))?;
+      let symlink = std::fs::canonicalize(path).map_err(|e| {
+        io::Error::new(
+          io::ErrorKind::NotFound,
+          format!("Failed to read symlink {}: {}", path, e),
+        )
+      })?;
       Ok(symlink.to_string_lossy().to_string())
     }
 
@@ -249,10 +257,12 @@ mod linux {
         readonly: read_bool(format!("/sys/block/{}/ro", blk_name).as_str())?,
         path: checked_path(format!("/dev/{}", blk_name).as_str()).ok(),
         path_by_seq: checked_path(format!("/dev/disk/by-diskseq/{}", disk_seq).as_str()).ok(),
-        subsystem: read_symlink(format!("/sys/block/{}/device/subsystem", blk_name).as_str()).ok().map(|s| match s.as_str() {
-          "/sys/class/nvme" => "nvme".to_string(),
-          "/sys/bus/scsi" => "scsi".to_string(),
-          _ => "unknown".to_string(),
+        subsystem: read_symlink(format!("/sys/block/{}/device/subsystem", blk_name).as_str()).ok().map(|s| {
+          match s.as_str() {
+            "/sys/class/nvme" => "nvme".to_string(),
+            "/sys/bus/scsi" => "scsi".to_string(),
+            _ => "unknown".to_string(),
+          }
         }),
       })
     }

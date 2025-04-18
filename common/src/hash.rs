@@ -62,18 +62,28 @@ pub async fn digest_for_file(path: &str, mut hasher: Box<dyn DynDigest + Send + 
 }
 
 /// MD5 hash for a file
-pub async fn md5_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<md5::Md5 as digest::Digest>::new())).await }
+pub async fn md5_for_file(path: &str) -> Result<String, HashError> {
+  digest_for_file(path, Box::new(<md5::Md5 as digest::Digest>::new())).await
+}
 
 /// SHA1 hash for a file
-pub async fn sha1_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha1::Sha1 as digest::Digest>::new())).await }
+pub async fn sha1_for_file(path: &str) -> Result<String, HashError> {
+  digest_for_file(path, Box::new(<sha1::Sha1 as digest::Digest>::new())).await
+}
 
 /// SHA2-256 hash for a file
-pub async fn sha256_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha2::Sha256 as digest::Digest>::new())).await }
+pub async fn sha256_for_file(path: &str) -> Result<String, HashError> {
+  digest_for_file(path, Box::new(<sha2::Sha256 as digest::Digest>::new())).await
+}
 
 /// SHA3-512 hash for a file
-pub async fn sha512_for_file(path: &str) -> Result<String, HashError> { digest_for_file(path, Box::new(<sha3::Sha3_512 as digest::Digest>::new())).await }
+pub async fn sha512_for_file(path: &str) -> Result<String, HashError> {
+  digest_for_file(path, Box::new(<sha3::Sha3_512 as digest::Digest>::new())).await
+}
 
-pub async fn digests_for_file(path: &str, mut hashers: Vec<Box<dyn DynDigest + Send + Unpin>>) -> Result<Vec<String>, HashError> {
+pub async fn digests_for_file(
+  path: &str, mut hashers: Vec<Box<dyn DynDigest + Send + Unpin>>,
+) -> Result<Vec<String>, HashError> {
   let mut fd = File::open(path).await?;
   // for files smaller than 1MB we can read the whole file into memory
   if fd.metadata().await.unwrap().len() < 1024 * 1024 {

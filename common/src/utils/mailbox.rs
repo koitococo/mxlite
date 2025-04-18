@@ -34,9 +34,7 @@ impl<Tag: Ord + Clone, Msg> SimpleMailbox<Tag, Msg> {
     }
   }
 
-  pub fn capacity(&self) -> usize {
-    self.capacity
-  }
+  pub fn capacity(&self) -> usize { self.capacity }
 }
 
 impl<Tag: Ord + Clone, Msg> SimpleMailboxInner<Tag, Msg> {

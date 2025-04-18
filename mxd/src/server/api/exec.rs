@@ -1,5 +1,7 @@
 use axum::{Json, Router, extract::State, http::StatusCode, routing::method_routing};
-use common::protocol::controller::{CommandExecutionRequest, ControllerRequest, ControllerRequestPayload, PROTOCOL_VERSION};
+use common::protocol::controller::{
+  CommandExecutionRequest, ControllerRequest, ControllerRequestPayload, PROTOCOL_VERSION,
+};
 use serde::Deserialize;
 
 use crate::states::SharedAppState;
@@ -13,7 +15,9 @@ struct PostRequest {
   use_script: Option<bool>,
 }
 
-async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> (StatusCode, Json<SendReqResponse>) {
+async fn post(
+  State(app): State<SharedAppState>, Json(params): Json<PostRequest>,
+) -> (StatusCode, Json<SendReqResponse>) {
   send_req_helper(
     app,
     params.host,
@@ -29,4 +33,6 @@ async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>
   .await
 }
 
-pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> { Router::new().with_state(app.clone()).route("/", method_routing::post(post)) }
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
+  Router::new().with_state(app.clone()).route("/", method_routing::post(post))
+}

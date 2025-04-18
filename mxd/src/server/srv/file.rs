@@ -54,7 +54,11 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
         let headers = headers.unwrap();
         add_header!(headers, header::CONTENT_TYPE, "application/octet-stream");
         add_header!(headers, header::ACCEPT_RANGES, "bytes");
-        add_header!(headers, header::LAST_MODIFIED, HttpDate::from(meta.modified().unwrap()).to_string());
+        add_header!(
+          headers,
+          header::LAST_MODIFIED,
+          HttpDate::from(meta.modified().unwrap()).to_string()
+        );
         let range = req
           .headers()
           .get(header::RANGE)
@@ -80,13 +84,21 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
             match builder.body(Body::from_stream(stream2)) {
               Ok(response) => (response, true),
               Err(err) => (
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(format!("Failed to create response: {}", err))).into_response(),
+                (
+                  StatusCode::INTERNAL_SERVER_ERROR,
+                  Json(format!("Failed to create response: {}", err)),
+                )
+                  .into_response(),
                 false,
               ),
             }
           }
           Some(Err(err)) => (
-            (StatusCode::RANGE_NOT_SATISFIABLE, Json(format!("Invalid range header: {}", err))).into_response(),
+            (
+              StatusCode::RANGE_NOT_SATISFIABLE,
+              Json(format!("Invalid range header: {}", err)),
+            )
+              .into_response(),
             false,
           ),
           None => {
@@ -94,7 +106,11 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
             match builder.body(Body::from_stream(ReaderStream::new(file))) {
               Ok(response) => (response, true),
               Err(err) => (
-                (StatusCode::INTERNAL_SERVER_ERROR, Json(format!("Failed to create response: {}", err))).into_response(),
+                (
+                  StatusCode::INTERNAL_SERVER_ERROR,
+                  Json(format!("Failed to create response: {}", err)),
+                )
+                  .into_response(),
                 false,
               ),
             }
@@ -102,18 +118,28 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
         }
       }
       Err(err) => (
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(format!("Failed to get file metadata: {}", err))).into_response(),
+        (
+          StatusCode::INTERNAL_SERVER_ERROR,
+          Json(format!("Failed to get file metadata: {}", err)),
+        )
+          .into_response(),
         false,
       ),
     },
     Err(err) => (
-      (StatusCode::INTERNAL_SERVER_ERROR, Json(format!("Failed to open file: {}", err))).into_response(),
+      (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(format!("Failed to open file: {}", err)),
+      )
+        .into_response(),
       false,
     ),
   }
 }
 
-async fn get_file(State(app): State<SharedAppState>, Path(name): Path<String>, Query(params): Query<GetFileParams>, req: Request) -> Response {
+async fn get_file(
+  State(app): State<SharedAppState>, Path(name): Path<String>, Query(params): Query<GetFileParams>, req: Request,
+) -> Response {
   debug!("get file: {}", name);
   if let Some(map) = app
     .file_map
@@ -138,7 +164,9 @@ async fn get_file(State(app): State<SharedAppState>, Path(name): Path<String>, Q
   }
 }
 
-async fn head_file(State(app): State<SharedAppState>, Path(name): Path<String>, Query(params): Query<GetFileParams>) -> Response {
+async fn head_file(
+  State(app): State<SharedAppState>, Path(name): Path<String>, Query(params): Query<GetFileParams>,
+) -> Response {
   debug!("head file: {}", name);
   let map = app
     .file_map
@@ -167,7 +195,11 @@ async fn head_file(State(app): State<SharedAppState>, Path(name): Path<String>, 
   add_header!(headers, header::CONTENT_LENGTH, meta.len().to_string());
   add_header!(headers, header::CONTENT_TYPE, "application/octet-stream");
   add_header!(headers, header::ACCEPT_RANGES, "bytes");
-  add_header!(headers, header::LAST_MODIFIED, HttpDate::from(meta.modified().unwrap()).to_string());
+  add_header!(
+    headers,
+    header::LAST_MODIFIED,
+    HttpDate::from(meta.modified().unwrap()).to_string()
+  );
   response
 }
 
@@ -188,9 +220,13 @@ fn apply_hash_headers(headers: &mut HeaderMap, map: FileMap) {
 }
 
 #[inline(always)]
-fn is_sanitized_path(path: &str) -> bool { !(path.starts_with("/") || path.ends_with("/") || path.contains("\\") || path.contains("./")) }
+fn is_sanitized_path(path: &str) -> bool {
+  !(path.starts_with("/") || path.ends_with("/") || path.contains("\\") || path.contains("./"))
+}
 
-async fn get_dir_child(State(app): State<SharedAppState>, Path((dir, path)): Path<(String, String)>, req: Request) -> Response {
+async fn get_dir_child(
+  State(app): State<SharedAppState>, Path((dir, path)): Path<(String, String)>, req: Request,
+) -> Response {
   debug!("get dir child: {} {}", dir, path);
   if !is_sanitized_path(&path) {
     return StatusCode::FORBIDDEN.into_response();
@@ -221,7 +257,11 @@ async fn head_dir_child(State(app): State<SharedAppState>, Path((dir, path)): Pa
     add_header!(headers, header::CONTENT_LENGTH, meta.len().to_string());
     add_header!(headers, header::CONTENT_TYPE, "application/octet-stream");
     add_header!(headers, header::ACCEPT_RANGES, "bytes");
-    add_header!(headers, header::LAST_MODIFIED, HttpDate::from(meta.modified().unwrap()).to_string());
+    add_header!(
+      headers,
+      header::LAST_MODIFIED,
+      HttpDate::from(meta.modified().unwrap()).to_string()
+    );
     response
   } else {
     StatusCode::NOT_FOUND.into_response()

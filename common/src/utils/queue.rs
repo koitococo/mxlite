@@ -25,10 +25,12 @@ impl<T> Queue<T> for SimpleQueue<T> {
 impl<T> SimpleQueue<T> {
   pub fn new() -> Self {
     let (tx, rx) = mpsc::channel(1024);
-    SimpleQueue { _tx: tx, _rx: Mutex::new(rx) }
+    SimpleQueue {
+      _tx: tx,
+      _rx: Mutex::new(rx),
+    }
   }
 }
-
 
 impl<T> Default for SimpleQueue<T> {
   fn default() -> Self { Self::new() }

@@ -73,7 +73,9 @@ async fn safe_sleep(duration: u64) -> bool {
   }
 }
 
-pub(crate) async fn handle_ws_url(env_ws_url: Option<String>, host_id: String, session_id: String, envs: Vec<String>) -> Result<bool> {
+pub(crate) async fn handle_ws_url(
+  env_ws_url: Option<String>, host_id: String, session_id: String, envs: Vec<String>,
+) -> Result<bool> {
   loop {
     let ws_url = if let Some(env_ws_url) = env_ws_url.clone() {
       info!("Using controller URL from environment variable: {}", &env_ws_url);
@@ -203,7 +205,9 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<b
   }
 }
 
-async fn handle_ws_event(event: Option<Result<Message, tokio_tungstenite::tungstenite::Error>>, tx: Sender<Message>) -> Result<bool> {
+async fn handle_ws_event(
+  event: Option<Result<Message, tokio_tungstenite::tungstenite::Error>>, tx: Sender<Message>,
+) -> Result<bool> {
   if let Some(event) = event {
     match event {
       Ok(ws_msg) => match handle_msg(ws_msg, tx).await {

@@ -42,4 +42,6 @@ async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (St
   }
 }
 
-pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> { Router::new().with_state(app.clone()).route("/", method_routing::get(get)) }
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
+  Router::new().with_state(app.clone()).route("/", method_routing::get(get))
+}

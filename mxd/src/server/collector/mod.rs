@@ -20,12 +20,13 @@ async fn handle_resp(response: AgentResponse, session: Arc<HostSession>) {
   session.set_task_finished(response.id, response);
 }
 
-async fn handle_events(events: Vec<AgentEvent>, session: Arc<HostSession>) { 
+async fn handle_events(events: Vec<AgentEvent>, session: Arc<HostSession>) {
   join_all(events.iter().map(async |event| {
     handle_event(event, session.clone()).await;
-  })).await;
+  }))
+  .await;
 }
 
-async fn handle_event(event: &AgentEvent, session: Arc<HostSession>)  {
+async fn handle_event(event: &AgentEvent, session: Arc<HostSession>) {
   info!("Host {} Received event: {:?}", session.host_id, event);
 }

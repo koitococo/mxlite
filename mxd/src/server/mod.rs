@@ -5,13 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use axum::{
-  Router,
-  extract::connect_info::Connected,
-  http::StatusCode,
-  routing::get,
-  serve::IncomingStream,
-};
+use axum::{Router, extract::connect_info::Connected, http::StatusCode, routing::get, serve::IncomingStream};
 use log::{debug, info};
 use serde::Serialize;
 use tokio::{net::TcpListener, select, time::sleep};
@@ -20,9 +14,7 @@ use tower_http::services::ServeDir;
 
 use crate::{
   StartupArguments,
-  states::{
-    AppState, SharedAppState,
-  },
+  states::{AppState, SharedAppState},
 };
 
 mod api;
@@ -42,7 +34,10 @@ impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
     let io = target.io();
     let local_addr = io.local_addr().ok();
     let remote_addr = io.peer_addr().ok();
-    SocketConnectInfo { local_addr, remote_addr }
+    SocketConnectInfo {
+      local_addr,
+      remote_addr,
+    }
   }
 }
 

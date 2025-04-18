@@ -58,7 +58,13 @@ impl HostSession {
   }
 
   pub(crate) async fn send_req(&self, req: ControllerRequest) -> Result<(), SendError<ControllerMessage>> {
-    self.tx.send(ControllerMessage { request: req, events: None }).await
+    self
+      .tx
+      .send(ControllerMessage {
+        request: req,
+        events: None,
+      })
+      .await
   }
 
   pub(crate) async fn recv_req(&self) -> Option<ControllerMessage> { self.rx.lock().await.recv().await }
@@ -87,7 +93,9 @@ impl HostSessionStorage {
   pub(crate) fn new() -> Self { Self(AtomticStateStorage::new()) }
 
   pub(crate) fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>> {
-    self.0.try_insert_deferred_returning(host_id.clone(), || HostSession::new(host_id.to_string(), extra))
+    self
+      .0
+      .try_insert_deferred_returning(host_id.clone(), || HostSession::new(host_id.to_string(), extra))
   }
 
   pub(crate) fn remove(&self, id: &String) { self.0.remove(id); }
@@ -96,7 +104,9 @@ impl HostSessionStorage {
 
   pub(crate) fn get(&self, id: &String) -> Option<Arc<HostSession>> { self.0.get(id) }
 
-  pub(crate) async fn send_req(&self, id: &String, mut req: ControllerRequest) -> Option<Result<u64, SendError<ControllerMessage>>> {
+  pub(crate) async fn send_req(
+    &self, id: &String, mut req: ControllerRequest,
+  ) -> Option<Result<u64, SendError<ControllerMessage>>> {
     if let Some(session) = self.0.get(id) {
       debug!("Sending request to session: {}", session.host_id);
       let task_id = session.new_task();
@@ -115,5 +125,11 @@ impl HostSessionStorage {
     self.0.get(id).map(|session| session.get_task_state(task_id).map(|task| task.as_ref().clone()))
   }
 
-  pub(crate) async fn list_all_tasks(&self, id: &String) -> Vec<u64> { if let Some(session) = self.0.get(id) { session.tasks.list() } else { vec![] } }
+  pub(crate) async fn list_all_tasks(&self, id: &String) -> Vec<u64> {
+    if let Some(session) = self.0.get(id) {
+      session.tasks.list()
+    } else {
+      vec![]
+    }
+  }
 }

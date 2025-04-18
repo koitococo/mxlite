@@ -22,8 +22,14 @@ impl FileTaskParams {
         hash: Some(hash),
       }),
       Err(err) => {
-        warn!("Failed to download file from '{}' to '{}': {}", self.url, self.path, err);
-        Ok(FileOperationResponse { success: false, hash: None })
+        warn!(
+          "Failed to download file from '{}' to '{}': {}",
+          self.url, self.path, err
+        );
+        Ok(FileOperationResponse {
+          success: false,
+          hash: None,
+        })
       }
     }
   }
@@ -36,7 +42,10 @@ impl FileTaskParams {
       }),
       Err(err) => {
         warn!("Failed to upload file from '{}' to '{}': {}", self.path, self.url, err);
-        Ok(FileOperationResponse { success: false, hash: None })
+        Ok(FileOperationResponse {
+          success: false,
+          hash: None,
+        })
       }
     }
   }
@@ -49,13 +58,22 @@ impl FileTaskParams {
       Ok(mut file) => {
         if let Err(err) = file.write_all(self.url.as_bytes()) {
           warn!("Failed to write to file '{}': {}", self.path, err);
-          return Ok(FileOperationResponse { success: false, hash: None });
+          return Ok(FileOperationResponse {
+            success: false,
+            hash: None,
+          });
         }
-        Ok(FileOperationResponse { success: true, hash: None })
+        Ok(FileOperationResponse {
+          success: true,
+          hash: None,
+        })
       }
       Err(err) => {
         warn!("Failed to open file '{}': {}", self.path, err);
-        Ok(FileOperationResponse { success: false, hash: None })
+        Ok(FileOperationResponse {
+          success: false,
+          hash: None,
+        })
       }
     }
   }

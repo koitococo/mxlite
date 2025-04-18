@@ -23,17 +23,16 @@ use log::{debug, error, info, warn};
 use tokio::{select, time::sleep};
 use tokio_util::sync::CancellationToken;
 
-use crate::
-  states::{
-    SharedAppState,
-    host_session::{ExtraInfo, HostSession},
-  }
-;
+use crate::states::{
+  SharedAppState,
+  host_session::{ExtraInfo, HostSession},
+};
 
 use super::SocketConnectInfo;
 
 pub(super) async fn handle_ws(
-  State(app): State<SharedAppState>, ConnectInfo(socket_info): ConnectInfo<SocketConnectInfo>, headers: HeaderMap, ws: WebSocketUpgrade,
+  State(app): State<SharedAppState>, ConnectInfo(socket_info): ConnectInfo<SocketConnectInfo>, headers: HeaderMap,
+  ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
   info!("WebSocket connection with {:?}", socket_info);
   let ct = app.cancel_signal.child_token();
@@ -49,10 +48,15 @@ pub(super) async fn handle_ws(
 async fn handle_ws_inner(
   app: SharedAppState, socket_info: SocketConnectInfo, headers: HeaderMap, ws: WebSocketUpgrade, ct: CancellationToken,
 ) -> Result<Response> {
-  let params: ConnectHandshake = ConnectHandshake::from_str(headers.get(CONNECT_HANDSHAKE_HEADER_KEY).ok_or(anyhow!("Missing handshake header"))?.to_str()?)?;
+  let params: ConnectHandshake = ConnectHandshake::from_str(
+    headers.get(CONNECT_HANDSHAKE_HEADER_KEY).ok_or(anyhow!("Missing handshake header"))?.to_str()?,
+  )?;
   Ok(ws.on_upgrade(async move |socket| {
     if let Err(e) = handle_socket(socket, params.clone(), socket_info, app.clone(), ct).await {
-      error!("Failed to handle WebSocket connection for host {}: {}", params.host_id, e);
+      error!(
+        "Failed to handle WebSocket connection for host {}: {}",
+        params.host_id, e
+      );
     } else {
       info!("WebSocket connection closed for id: {}", params.host_id);
     }
@@ -61,7 +65,10 @@ async fn handle_ws_inner(
 }
 
 // Function to handle the WebSocket connection
-async fn handle_socket(mut ws: WebSocket, params: ConnectHandshake, socket_info: SocketConnectInfo, app: SharedAppState, ct: CancellationToken) -> Result<()> {
+async fn handle_socket(
+  mut ws: WebSocket, params: ConnectHandshake, socket_info: SocketConnectInfo, app: SharedAppState,
+  ct: CancellationToken,
+) -> Result<()> {
   info!("WebSocket connection for id: {} {}", params.host_id, params.session_id);
   let session = app
     .host_session
@@ -77,7 +84,10 @@ async fn handle_socket(mut ws: WebSocket, params: ConnectHandshake, socket_info:
     )
     .ok_or(anyhow::anyhow!("Failed to obtain session for id: {}", params.host_id))?;
   if session.session_id != params.session_id {
-    error!("Session ID mismatch: expected {}, got {}", session.session_id, params.session_id);
+    error!(
+      "Session ID mismatch: expected {}, got {}",
+      session.session_id, params.session_id
+    );
     session.notify.notify_waiters();
     return Err(anyhow!("Session ID mismatch"));
   }
@@ -153,4 +163,3 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
     Ok(false)
   }
 }
-

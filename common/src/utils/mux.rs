@@ -83,7 +83,13 @@ where K: Ord
 
   async fn _recv(&self) -> Option<(K, D)> { self.transport.recv().await.unwrap_or(None) }
 
-  async fn _recv2(&self, v: Option<(K, D)>) -> bool { if let Some((k, d)) = v { self._rx.dispatch(k, d).await.is_ok() } else { false } }
+  async fn _recv2(&self, v: Option<(K, D)>) -> bool {
+    if let Some((k, d)) = v {
+      self._rx.dispatch(k, d).await.is_ok()
+    } else {
+      false
+    }
+  }
 
   async fn _send(&self) -> Option<(K, D, oneshot::Sender<Result<(), T::Error>>)> { self.tx_queue.pop().await }
 

@@ -9,7 +9,11 @@ mod utils;
 #[tokio::main]
 async fn main() -> Result<()> {
   simple_logger::SimpleLogger::new()
-    .with_level(if cfg!(debug_assertions) { LevelFilter::Trace } else { LevelFilter::Info })
+    .with_level(if cfg!(debug_assertions) {
+      LevelFilter::Trace
+    } else {
+      LevelFilter::Info
+    })
     .with_utc_timestamps()
     .env()
     .init()?;
@@ -29,7 +33,10 @@ async fn main() -> Result<()> {
   let session_id = random_str(16);
   info!("Host ID: {}", host_id);
   info!("Session ID: {}", session_id);
-  let envs = std::env::vars().filter(|(k, _)| k.starts_with("MXA_")).map(|(k, v)| format!("{}={}", k, v)).collect::<Vec<_>>();
+  let envs = std::env::vars()
+    .filter(|(k, _)| k.starts_with("MXA_"))
+    .map(|(k, v)| format!("{}={}", k, v))
+    .collect::<Vec<_>>();
 
   loop {
     let ws_url = std::env::var("MXD_URL").ok();

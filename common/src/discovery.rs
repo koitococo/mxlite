@@ -1,4 +1,6 @@
-use crate::protocol::discovery::{DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE, PROTOCOL_REV};
+use crate::protocol::discovery::{
+  DISCOVERY_PORT, DiscoveryRequest, DiscoveryResponse, MAGIC_REQUEST, MAGIC_RESPONSE, PROTOCOL_REV,
+};
 use futures_util::future::join_all;
 use log::{debug, error, info, warn};
 use reqwest::Url;
@@ -47,7 +49,12 @@ pub async fn discover_controller_once() -> Result<Vec<String>, DiscoveryError> {
   let req_bin = req_str.as_bytes();
   for _ in 0..10 {
     debug!("Sending discovery request: {}", req_str);
-    socket.send_to(req_bin, SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT)).await?;
+    socket
+      .send_to(
+        req_bin,
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT),
+      )
+      .await?;
     select! {
         _ = tokio::time::sleep(Duration::from_secs(3)) => {
             info!("Discovery timeout");
@@ -132,5 +139,13 @@ async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<String>, DiscoveryEr
 }
 
 async fn http_ping(url: Url, timeout: u64) -> Result<bool, DiscoveryError> {
-  Ok(reqwest::Client::new().head(url).timeout(Duration::from_secs(timeout)).send().await?.status().is_success())
+  Ok(
+    reqwest::Client::new()
+      .head(url)
+      .timeout(Duration::from_secs(timeout))
+      .send()
+      .await?
+      .status()
+      .is_success(),
+  )
 }

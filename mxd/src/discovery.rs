@@ -17,7 +17,11 @@ fn get_ws_urls(port: u16) -> Result<Vec<String>> {
         return None;
       }
       let ip = if_.ip();
-      if ip.is_ipv4() { Some(format!("ws://{}:{}/ws", ip, port)) } else { None }
+      if ip.is_ipv4() {
+        Some(format!("ws://{}:{}/ws", ip, port))
+      } else {
+        None
+      }
     })
     .collect();
   Ok(urls)

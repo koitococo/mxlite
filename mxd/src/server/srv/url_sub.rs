@@ -13,7 +13,10 @@ use url::Url;
 use crate::states::SharedAppState;
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
-  Router::new().with_state(app.clone()).route("/by-host", get(get_url_sub_host)).route("/by-ip", get(get_url_sub_ip))
+  Router::new()
+    .with_state(app.clone())
+    .route("/by-host", get(get_url_sub_host))
+    .route("/by-ip", get(get_url_sub_ip))
 }
 
 #[derive(Deserialize)]
@@ -35,7 +38,9 @@ struct GetUrlSubResponse {
   urls: Vec<String>,
 }
 
-async fn get_url_sub_host(State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByHostParams>) -> (StatusCode, Json<GetUrlSubResponse>) {
+async fn get_url_sub_host(
+  State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByHostParams>,
+) -> (StatusCode, Json<GetUrlSubResponse>) {
   if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
     if let Ok(mut url) = Url::parse(&info.controller_url) {
       if url.set_scheme("http").is_err() {
@@ -79,7 +84,9 @@ async fn get_url_sub_host(State(app): State<SharedAppState>, Query(params): Quer
   }
 }
 
-async fn get_url_sub_ip(State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByIpParams>) -> (StatusCode, Json<GetUrlSubResponse>) {
+async fn get_url_sub_ip(
+  State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByIpParams>,
+) -> (StatusCode, Json<GetUrlSubResponse>) {
   match get_url_sub_ip_inner(params, app.startup_args.port) {
     Ok(resp) => (StatusCode::OK, Json(resp)),
     Err(err) => {
@@ -125,7 +132,10 @@ fn match_ip(target: u32) -> Result<Vec<String>> {
       .iter()
       .filter_map(|int| match &int.addr {
         IfAddr::V4(addr) => {
-          if addr.prefixlen > 0 && addr.prefixlen < 32 && addr.ip.to_bits() >> (32 - addr.prefixlen) == target >> (32 - addr.prefixlen) {
+          if addr.prefixlen > 0 &&
+            addr.prefixlen < 32 &&
+            addr.ip.to_bits() >> (32 - addr.prefixlen) == target >> (32 - addr.prefixlen)
+          {
             Some(addr.ip.to_string())
           } else {
             None

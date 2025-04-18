@@ -24,11 +24,21 @@ where Event: Ord
 impl<Event, Data> SimpleBus<Event, Data>
 where Event: Ord
 {
-  pub fn new() -> Self { Self { _inner: Mutex::new(None) } }
+  pub fn new() -> Self {
+    Self {
+      _inner: Mutex::new(None),
+    }
+  }
 
   async fn get_inner(&self, event: Event) -> Box<(Option<mpsc::Sender<Data>>, Arc<Mutex<mpsc::Receiver<Data>>>)> {
     let mut inner = self._inner.lock().await;
-    let map = { if let Some(map) = inner.as_mut() { map } else { inner.insert(BTreeMap::new()) } };
+    let map = {
+      if let Some(map) = inner.as_mut() {
+        map
+      } else {
+        inner.insert(BTreeMap::new())
+      }
+    };
     map
       .entry(event)
       .or_insert_with(|| {

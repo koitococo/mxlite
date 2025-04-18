@@ -42,7 +42,9 @@ struct SendReqResponse {
   reason: Option<String>,
 }
 
-async fn send_req_helper(app: SharedAppState, host: String, req: ControllerRequest) -> (StatusCode, Json<SendReqResponse>) {
+async fn send_req_helper(
+  app: SharedAppState, host: String, req: ControllerRequest,
+) -> (StatusCode, Json<SendReqResponse>) {
   if let Some(r) = app.host_session.send_req(&host, req).await {
     match r {
       Ok(req_id) => (

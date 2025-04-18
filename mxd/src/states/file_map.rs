@@ -73,7 +73,8 @@ impl FileMapStorage {
   pub(crate) fn del_map(&self, publish_name: &String) { self.0.remove(publish_name); }
 
   pub(crate) async fn get_file_with_optional_props(
-    &self, publish_name: &String, ensure_xxh3: bool, ensure_md5: bool, ensure_sha1: bool, ensure_sha256: bool, ensure_sha512: bool,
+    &self, publish_name: &String, ensure_xxh3: bool, ensure_md5: bool, ensure_sha1: bool, ensure_sha256: bool,
+    ensure_sha512: bool,
   ) -> Option<FileMap> {
     if let Some(file_map) = self.0.get(publish_name) {
       if let MapItem::File(mut new_inner) = (*file_map).clone() {
@@ -87,7 +88,9 @@ impl FileMapStorage {
           let calc_sha1 = ensure_sha1 && new_inner.sha1.is_none();
           let calc_sha256 = ensure_sha256 && new_inner.sha256.is_none();
           let calc_sha512 = ensure_sha512 && new_inner.sha512.is_none();
-          if let Ok((md5, sha1, sha256, sha512)) = hash::sha_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await {
+          if let Ok((md5, sha1, sha256, sha512)) =
+            hash::sha_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await
+          {
             if calc_md5 {
               new_inner.md5 = md5;
             }

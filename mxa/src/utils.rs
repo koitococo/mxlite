@@ -58,7 +58,12 @@ pub(crate) async fn upload_file(url: &str, path: &str) -> Result<()> {
 /// Execute an external command and return its output.
 async fn execute_command(cmd: &String, args: Vec<String>) -> Result<(i32, String, String)> {
   info!("Executing external command: {} {:?}", cmd, args);
-  let child = Command::new(cmd).args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+  let child = Command::new(cmd)
+    .args(args)
+    .stdin(Stdio::null())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()?;
   let output = child.wait_with_output().await?;
   Ok((
     output.status.code().unwrap_or(-1),

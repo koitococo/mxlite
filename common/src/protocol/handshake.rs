@@ -18,7 +18,11 @@ pub struct ConnectHandshake {
 
 #[allow(clippy::to_string_trait_impl)]
 impl ToString for ConnectHandshake {
-  fn to_string(&self) -> String { general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_string(&self).unwrap().as_bytes()).to_string() }
+  fn to_string(&self) -> String {
+    general_purpose::URL_SAFE_NO_PAD
+      .encode(serde_json::to_string(&self).unwrap().as_bytes())
+      .to_string()
+  }
 }
 
 #[derive(Debug, Error)]

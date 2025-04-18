@@ -25,4 +25,6 @@ async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
   Json(GetResponse { ok: true, hosts })
 }
 
-pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> { Router::new().with_state(app.clone()).route("/", method_routing::get(get)) }
+pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
+  Router::new().with_state(app.clone()).route("/", method_routing::get(get))
+}
