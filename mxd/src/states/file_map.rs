@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use common::{
-  state::{AtomticStateStorage, StateStorage as _},
-  utils::{self},
+  hash::{self},
+  utils::state::{AtomticStateStorage, StateStorage as _},
 };
 
 #[derive(Debug, Clone)]
@@ -78,7 +78,7 @@ impl FileMapStorage {
     if let Some(file_map) = self.0.get(publish_name) {
       if let MapItem::File(mut new_inner) = (*file_map).clone() {
         if ensure_xxh3 && new_inner.xxh3.is_none() {
-          if let Ok(hash) = utils::xxh3_for_file(&new_inner.file_path).await {
+          if let Ok(hash) = hash::xxh3_for_file(&new_inner.file_path).await {
             new_inner.xxh3 = Some(hash);
           }
         }
@@ -87,7 +87,7 @@ impl FileMapStorage {
           let calc_sha1 = ensure_sha1 && new_inner.sha1.is_none();
           let calc_sha256 = ensure_sha256 && new_inner.sha256.is_none();
           let calc_sha512 = ensure_sha512 && new_inner.sha512.is_none();
-          if let Ok((md5, sha1, sha256, sha512)) = utils::sha_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await {
+          if let Ok((md5, sha1, sha256, sha512)) = hash::sha_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await {
             if calc_md5 {
               new_inner.md5 = md5;
             }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use log::{info, warn, LevelFilter};
+use log::{LevelFilter, info, warn};
 
 mod discovery;
 mod server;

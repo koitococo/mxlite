@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, routing::method_routing, Json, Router};
+use axum::{Json, Router, extract::State, http::StatusCode, routing::method_routing};
 use common::protocol::controller::{CommandExecutionRequest, ControllerRequest, ControllerRequestPayload, PROTOCOL_VERSION};
 use serde::Deserialize;
 

@@ -1,4 +1,5 @@
 use common::{
+  discovery::discover_controller,
   protocol::{
     controller::{
       AgentMessage,
@@ -12,7 +13,6 @@ use common::{
     handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
   },
   system_info::{self},
-  discovery::discover_controller
 };
 use std::str::FromStr;
 use tokio::{

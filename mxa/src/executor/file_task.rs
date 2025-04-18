@@ -1,7 +1,7 @@
 use std::{fs::OpenOptions, io::Write as _};
 
 use anyhow::Result;
-use common::utils::xxh3_for_file;
+use common::hash::xxh3_for_file;
 use log::warn;
 
 use crate::utils::{download_file, upload_file};

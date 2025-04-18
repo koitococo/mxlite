@@ -1,4 +1,4 @@
-use axum::{extract::State, routing::method_routing, Json, Router};
+use axum::{Json, Router, extract::State, routing::method_routing};
 use serde::Serialize;
 
 use crate::states::SharedAppState;

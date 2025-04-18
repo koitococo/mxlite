@@ -1,4 +1,4 @@
-use axum::{extract::State, routing::method_routing, Json, Router};
+use axum::{Json, Router, extract::State, routing::method_routing};
 use futures_util::future::join_all;
 use serde::Serialize;
 

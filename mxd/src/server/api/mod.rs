@@ -7,10 +7,7 @@ mod list;
 mod list_info;
 mod result;
 
-use axum::{
-  Json, Router,
-  http::StatusCode,
-};
+use axum::{Json, Router, http::StatusCode};
 use common::protocol::controller::ControllerRequest;
 use log::error;
 use serde::Serialize;

@@ -2,10 +2,12 @@ use std::{clone::Clone, sync::Arc};
 
 use anyhow::Result;
 use common::{
-  mailbox::{Mailbox, SimpleMailbox},
   protocol::controller::{AgentResponse, ControllerMessage, ControllerRequest},
-  state::{AtomticStateStorage, StateStorage as _},
   system_info::SystemInfo,
+  utils::{
+    mailbox::{Mailbox, SimpleMailbox},
+    state::{AtomticStateStorage, StateStorage as _},
+  },
 };
 use log::{debug, warn};
 use serde::Serialize;

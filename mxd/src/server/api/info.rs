@@ -1,5 +1,8 @@
 use axum::{
-  extract::{Query, State}, http::StatusCode, routing::method_routing, Json, Router
+  Json, Router,
+  extract::{Query, State},
+  http::StatusCode,
+  routing::method_routing,
 };
 use serde::{Deserialize, Serialize};
 
