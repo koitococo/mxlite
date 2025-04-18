@@ -73,6 +73,13 @@ async fn safe_sleep(duration: u64) -> bool {
   }
 }
 
+enum BreakLoopReason {
+  LostConnection,
+  Shutdown,
+  ErrorCaptured,
+  Nonbreak,
+}
+
 pub(crate) async fn handle_ws_url(
   env_ws_url: Option<String>, host_id: String, session_id: String, envs: Vec<String>,
 ) -> Result<bool> {
@@ -131,12 +138,16 @@ pub(crate) async fn handle_ws_url(
               error!("Failed to handle connection: {}", e);
               continue;
             }
-            Ok(exit) => {
-              if exit {
-                info!("Exiting connection loop");
+            Ok(exit) => match exit {
+              BreakLoopReason::LostConnection => {
+                error!("Lost connection to controller");
+              }
+              BreakLoopReason::Shutdown => {
+                info!("Shutting down");
                 return Ok(true);
               }
-            }
+              _ => (),
+            },
           }
           warn!("Connection closed");
           if safe_sleep(5000).await {
@@ -157,57 +168,60 @@ pub(crate) async fn handle_ws_url(
   }
 }
 
-async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<bool> {
+async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<BreakLoopReason> {
   let (mut tx, mut rx) = ws.split();
   let (tx_tx, mut tx_rx) = mpsc::channel::<Message>(16);
   debug!("Websocket connected to controller. Begin to handle message loop");
   loop {
     select! {
-        _ = tokio::signal::ctrl_c() => {
-            info!("Received Ctrl-C, shutting down websocket connection");
-            tx.send(Message::Close(None)).await?;
-            break Ok(true);
+      _ = tokio::signal::ctrl_c() => {
+        info!("Received Ctrl-C, shutting down websocket connection");
+        tx.send(Message::Close(None)).await?;
+        break Ok(BreakLoopReason::Shutdown);
+      }
+      _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
+        trace!("Sending ping to controller");
+        if let Err(e) = tx.send(Message::Ping("ping".into())).await {
+          error!("Failed to send ping: {}", e);
+          break Ok(BreakLoopReason::LostConnection);
         }
-        _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
-            trace!("Sending ping to controller");
-            if let Err(e) = tx.send(Message::Ping("ping".into())).await {
-                error!("Failed to send ping: {}", e);
-                break Ok(false);
+      }
+      msg = rx.next() => {
+        match handle_ws_event(msg, tx_tx.clone()).await {
+          Ok(c) => {
+            match c {
+              BreakLoopReason::LostConnection => {
+                error!("Lost connection to controller");
+                break Ok(BreakLoopReason::LostConnection);
+              }
+              _ => ()
             }
+          }
+          Err(e) => {
+              error!("Failed to handle WebSocket event: {}", e);
+              break Ok(BreakLoopReason::ErrorCaptured);
+          }
         }
-        msg = rx.next() => {
-            match handle_ws_event(msg, tx_tx.clone()).await {
-                Ok(c) => {
-                    if c {
-                        info!("WebSocket event loop exited");
-                            break Ok(c);
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to handle WebSocket event: {}", e);
-                    break Ok(false);
-                }
+      }
+      msg = tx_rx.recv() => {
+        if let Some(msg) = msg {
+            debug!("Sending message to controller: {:?}", msg);
+            if let Err(e) = tx.send(msg).await {
+                error!("Failed to send message to controller: {}", e);
+                break Ok(BreakLoopReason::ErrorCaptured);
             }
+        } else {
+            info!("Internal channel closed");
+            break Ok(BreakLoopReason::Shutdown);
         }
-        msg = tx_rx.recv() => {
-            if let Some(msg) = msg {
-                debug!("Sending message to controller: {:?}", msg);
-                if let Err(e) = tx.send(msg).await {
-                    error!("Failed to send message to controller: {}", e);
-                    break Ok(false);
-                }
-            } else {
-                info!("Internal channel closed");
-                break Ok(false);
-            }
-        }
+      }
     }
   }
 }
 
 async fn handle_ws_event(
   event: Option<Result<Message, tokio_tungstenite::tungstenite::Error>>, tx: Sender<Message>,
-) -> Result<bool> {
+) -> Result<BreakLoopReason> {
   if let Some(event) = event {
     match event {
       Ok(ws_msg) => match handle_msg(ws_msg, tx).await {
@@ -223,11 +237,11 @@ async fn handle_ws_event(
       }
     }
   } else {
-    Ok(false)
+    Ok(BreakLoopReason::ErrorCaptured)
   }
 }
 
-async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<bool> {
+async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason> {
   debug!("Received message: {:?}", ws_msg);
   match ws_msg {
     Message::Text(msg) => {
@@ -279,9 +293,9 @@ async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<bool> {
       // return Ok(e
       //     .map(|v| u16::from(v.code) == CLOSE_CODE && v.reason == CLOSE_MXA_SHUTDOWN)
       //     .unwrap_or(false));
-      return Ok(false);
+      return Ok(BreakLoopReason::LostConnection);
     }
     Message::Frame(_) => warn!("Received a malformed message from controller, ignored",),
   }
-  Ok(false)
+  Ok(BreakLoopReason::Nonbreak)
 }
