@@ -268,7 +268,14 @@ fn get_remote_ips(info: ExtraInfo) -> Vec<(u32, u8)> {
 #[inline]
 fn match_local_ip(target: u32) -> Result<Vec<String>> {
   let nets = get_local_ips()?;
-  Ok(find_all_routable(nets, vec![target]).iter().map(|&ip| u32_to_ipv4_str(ip)).collect())
+  let results = nets.iter().filter_map(|(ip, prefixlen)| {
+    if is_in_subnet(target, *ip, *prefixlen) {
+      Some(u32_to_ipv4_str(*ip))
+    } else {
+      None
+    }
+  }).collect::<Vec<String>>();
+  Ok(results)
 }
 
 #[inline]
