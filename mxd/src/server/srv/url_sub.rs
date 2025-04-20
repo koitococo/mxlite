@@ -17,10 +17,10 @@ use crate::states::{SharedAppState, host_session::ExtraInfo};
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
   Router::new()
     .with_state(app.clone())
-    .route("/by-host", get(get_url_sub_host))
-    .route("/by-host-ip", get(get_url_sub_host_ip))
-    .route("/by-ip", get(get_url_sub_ip))
-    .route("/remote-by-host-ip", get(get_remote_url_sub_host_ip))
+    .route("/by-host", get(get_by_host))
+    .route("/by-host-ip", get(get_by_host_ip))
+    .route("/by-ip", get(get_by_ip))
+    .route("/remote-ip-by-host-ip", get(get_remote_ip_by_host_ip))
     
 }
 
@@ -36,6 +36,11 @@ struct GetUrlSubByIpParams {
   path: String,
 }
 
+#[derive(Deserialize)]
+struct GetIpByHostParams {
+  host: String,
+}
+
 #[derive(Serialize)]
 struct GetUrlSubResponse {
   ok: bool,
@@ -43,7 +48,7 @@ struct GetUrlSubResponse {
   urls: Vec<String>,
 }
 
-async fn get_url_sub_host(
+async fn get_by_host(
   State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByHostParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
   if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
@@ -89,10 +94,10 @@ async fn get_url_sub_host(
   }
 }
 
-async fn get_url_sub_host_ip(
+async fn get_by_host_ip(
   State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByHostParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
-  let port = app.startup_args.port;
+  let port = app.startup_args.http_port;
   if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
     if let Ok(local_nets) = get_local_ips() {
       let remote_nets = get_remote_ips(info);
@@ -128,10 +133,10 @@ async fn get_url_sub_host_ip(
   }
 }
 
-async fn get_url_sub_ip(
+async fn get_by_ip(
   State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByIpParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
-  match get_url_sub_ip_inner(params, app.startup_args.port) {
+  match get_url_sub_ip_inner(params, app.startup_args.http_port) {
     Ok(resp) => (StatusCode::OK, Json(resp)),
     Err(err) => {
       error!("Error: {}", err);
@@ -147,15 +152,14 @@ async fn get_url_sub_ip(
   }
 }
 
-async fn get_remote_url_sub_host_ip(
-  State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByHostParams>,
+async fn get_remote_ip_by_host_ip(
+  State(app): State<SharedAppState>, Query(params): Query<GetIpByHostParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
-  let port = app.startup_args.port;
   if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
     if let Ok(local_nets) = get_local_ips() {
       let remote_nets = get_remote_ips(info);
       let matches = find_all_routable(local_nets, remote_nets.iter().map(|local_ip| local_ip.0));
-      let urls = matches.iter().map(|ip| format!("http://{}:{}/{}", u32_to_ipv4_str(*ip), port, params.path,).to_string()).collect();
+      let urls = matches.iter().map(|ip| u32_to_ipv4_str(*ip).to_string()).collect();
       (
         StatusCode::OK,
         Json(GetUrlSubResponse {

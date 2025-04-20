@@ -1,16 +1,22 @@
 use anyhow::Result;
 use clap::Parser;
 use log::{LevelFilter, info, warn};
+use utils::get_cert_from_file;
 
 mod discovery;
 mod server;
 mod states;
+mod utils;
 
 #[derive(Parser)]
 struct Cli {
-  /// Port to listen on
+  /// HTTP port to listen on
   #[clap(short = 'p', long, env = "MXD_PORT", default_value = "8080")]
-  port: u16,
+  http_port: u16,
+
+  /// HTTPS port to listen on
+  #[clap(short = 'P', long, env = "MXD_HTTPS_PORT", default_value = "8443")]
+  https_port: u16,
 
   /// API key for authentication
   #[clap(short = 'k', long, env = "MXD_APIKEY")]
@@ -25,19 +31,88 @@ struct Cli {
   disable_discovery: bool,
 
   /// Enable verbose logging
-  #[clap(short = 'v', long, default_value = "false")]
+  #[clap(short = 'v', long, env = "MXD_VERBOSE", default_value = "false")]
   verbose: bool,
 
   /// Detect other controllers
-  #[clap(short = 'D', long, default_value = "false")]
+  #[clap(short = 'D', long, env = "MXD_DETECT_OTHERS", default_value = "false")]
   detect_others: bool,
+
+  /// Enable https
+  #[clap(short = 't', long, env = "MXD_HTTPS", default_value = "false")]
+  https: bool,
+
+  /// Enable http, currently has no effect
+  /// since http is always enabled
+  #[clap(short = 'T', long, env = "MXD_HTTP", default_value = "true")]
+  http: bool,
+
+  /// TLS certificate file
+  #[clap(short = 'c', long, env = "MXD_TLS_CERT")]
+  tls_cert: Option<String>,
+
+  /// TLS key file
+  #[clap(short = 'e', long, env = "MXD_TLS_KEY")]
+  tls_key: Option<String>,
+
+  /// Path to the generated CA certificate
+  #[clap(short = 'C', long, env = "MXD_CA_CERT")]
+  ca_cert: Option<String>,
+
+  /// Path to the generated CA key
+  #[clap(short = 'E', long, env = "MXD_CA_KEY")]
+  ca_key: Option<String>,
+
+  /// Generate self-signed certificate on startup
+  #[clap(short = 'g', long, env = "MXD_GENERATE_CERT", default_value = "false")]
+  generate_cert: bool,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct StartupArguments {
+pub(crate) struct HttpsArgs {
+  pub(crate) cert: String,
+  pub(crate) key: String,
   pub(crate) port: u16,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct StartupArgs {
+  pub(crate) http_port: u16,
+  pub(crate) https_args: Option<HttpsArgs>,
   pub(crate) apikey: Option<String>,
   pub(crate) static_path: Option<String>,
+  pub(crate) disable_discovery: bool,
+  pub(crate) detect_others: bool,
+}
+
+impl TryFrom<Cli> for StartupArgs {
+  type Error = anyhow::Error;
+  fn try_from(config: Cli) -> Result<Self, Self::Error> {
+    let args = StartupArgs {
+      http_port: config.http_port,
+      https_args: if config.https {
+        let (cert, key) = get_cert_from_file(
+          config.tls_cert,
+          config.tls_key,
+          config.ca_cert,
+          config.ca_key,
+          config.generate_cert,
+        )?;
+        Some(HttpsArgs {
+          cert,
+          key,
+          port: config.https_port,
+        })
+      } else {
+        None
+      },
+      apikey: config.apikey,
+      static_path: config.static_path,
+      disable_discovery: config.disable_discovery,
+      detect_others: config.detect_others,
+    };
+    Ok(args)
+  }
 }
 
 #[tokio::main]
@@ -52,13 +127,14 @@ async fn main() -> Result<()> {
     } else {
       LevelFilter::Info
     })
-    .with_utc_timestamps()
+    .with_local_timestamps()
     .env()
     .init()?;
 
+  let args = StartupArgs::try_from(config)?;
   info!("MetalX Controller - Launching");
 
-  if config.detect_others {
+  if args.detect_others {
     info!("Detecting other controllers...");
     match common::discovery::discover_controller_once().await {
       Err(common::discovery::DiscoveryError::NoControllerFound) => {
@@ -80,19 +156,9 @@ async fn main() -> Result<()> {
     }
   }
 
-  let discovery_ = if config.disable_discovery {
-    None
-  } else {
-    Some(discovery::serve(config.port))
-  };
+  let discovery_ = discovery::serve(args.clone());
 
-  if let Err(e) = server::main(StartupArguments {
-    port: config.port,
-    apikey: config.apikey,
-    static_path: config.static_path,
-  })
-  .await
-  {
+  if let Err(e) = server::main(args).await {
     log::error!("Failed to start server: {}", e);
   }
 

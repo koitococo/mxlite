@@ -208,6 +208,9 @@ fn apply_hash_headers(headers: &mut HeaderMap, map: FileMap) {
   if let Some(hash) = map.xxh3 {
     add_header!(headers, "X-Hash-Xxh3", hash);
   }
+  if let Some(hash) = map.md5 {
+    add_header!(headers, "X-Hash-Md5", hash);
+  }
   if let Some(hash) = map.sha1 {
     add_header!(headers, "X-Hash-Sha1", hash);
   }

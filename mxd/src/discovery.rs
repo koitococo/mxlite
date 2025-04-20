@@ -9,6 +9,8 @@ use log::{debug, error, info, warn};
 use tokio::{net::UdpSocket, select, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 
+use crate::StartupArgs;
+
 fn get_ws_urls(port: u16) -> Result<Vec<String>> {
   let urls = if_addrs::get_if_addrs()?
     .iter()
@@ -55,7 +57,12 @@ async fn recv_pack(socket: &UdpSocket, port: u16) -> Result<()> {
   }
 }
 
-pub fn serve(port: u16) -> (JoinHandle<()>, CancellationToken) {
+pub fn serve(args: StartupArgs) -> Option<(JoinHandle<()>, CancellationToken)> {
+  if args.disable_discovery {
+    info!("Discovery service is disabled");
+    return None;
+  }
+  let port = args.http_port;
   info!("Setting up discovery service");
   let token = CancellationToken::new();
   let token_ = token.clone();
@@ -82,5 +89,5 @@ pub fn serve(port: u16) -> (JoinHandle<()>, CancellationToken) {
       }
     }
   });
-  (join, token)
+  Some((join, token))
 }

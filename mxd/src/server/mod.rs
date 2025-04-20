@@ -1,19 +1,28 @@
 use std::{
-  net::{IpAddr, Ipv4Addr, SocketAddr},
-  sync::Arc,
-  time::Duration,
+  future, net::{IpAddr, Ipv4Addr, SocketAddr}, sync::Arc, time::Duration
 };
 
 use anyhow::Result;
-use axum::{Router, extract::connect_info::Connected, http::StatusCode, routing::get, serve::IncomingStream};
+use axum::{
+  Router,
+  extract::connect_info::Connected,
+  http::StatusCode,
+  routing::get,
+  serve::{IncomingStream, Listener},
+};
+use futures::{StreamExt, stream::FuturesUnordered};
 use log::{debug, info};
 use serde::Serialize;
-use tokio::{net::TcpListener, select, time::sleep};
+use tokio::{
+  net::{TcpListener, TcpStream},
+  select,
+  time::sleep,
+};
 use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
 
 use crate::{
-  StartupArguments,
+  StartupArgs,
   states::{AppState, SharedAppState},
 };
 
@@ -41,9 +50,10 @@ impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
   }
 }
 
-pub(crate) async fn main(config: StartupArguments) -> Result<()> {
+pub(crate) async fn main(config: StartupArgs) -> Result<()> {
   let halt_signal = CancellationToken::new();
   let halt_signal2 = halt_signal.clone();
+
   let app: SharedAppState = Arc::new(AppState::new(halt_signal.clone(), config.clone()));
   let mut route = Router::new()
     .route("/ws", get(self::net::handle_ws).head(async || StatusCode::OK))
@@ -52,8 +62,9 @@ pub(crate) async fn main(config: StartupArguments) -> Result<()> {
   if let Some(static_path) = config.static_path {
     route = route.nest_service("/static", ServeDir::new(static_path));
   }
+  let listener = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.http_port)).await?;
   let serve = axum::serve(
-    TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.port)).await?,
+    listener,
     route.with_state(app.clone()).into_make_service_with_connect_info::<SocketConnectInfo>(),
   )
   .with_graceful_shutdown(async move {

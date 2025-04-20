@@ -32,7 +32,7 @@ struct PostResponse {
   result: Vec<PostResponseErrInner>,
 }
 
-async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> Json<PostResponse> {
+async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> (StatusCode, Json<PostResponse>) {
   let mut result = Vec::with_capacity(params.maps.len());
   for map in params.maps {
     if map.isdir.unwrap_or(false) {
@@ -63,7 +63,14 @@ async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>
       });
     }
   }
-  Json(PostResponse { result })
+  (
+    if result.iter().all(|i| i.ok) {
+      StatusCode::OK
+    } else {
+      StatusCode::MULTI_STATUS
+    },
+    Json(PostResponse { result }),
+  )
 }
 
 #[derive(Serialize)]
