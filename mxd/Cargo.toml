@@ -24,10 +24,9 @@ url = "2.5.4"
 http-range-header = "0.4.2"
 httpdate = "1.0.3"
 rcgen = { git = "ssh://git@github.com/koitococo/rcgen.git", branch = "v0.13.2", features = [
-  "x509-parser",
-] }
-axum-server = { version = "0.7.2", features = ["tls-rustls", "tokio-rustls"] }
-axum-extra = "0.10.1"
-rustls-pemfile = "2.2.0"
+  "x509-parser", "pem", "crypto", "ring"
+], default-features = false }
+rustls-pemfile = { version = "2.2.0", default-features = false }
 time = "0.3.41"
 futures = "0.3.31"
+tokio-rustls = { version = "0.26.2", features = ["ring"], default-features = false}

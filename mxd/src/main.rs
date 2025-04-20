@@ -42,11 +42,6 @@ struct Cli {
   #[clap(short = 't', long, env = "MXD_HTTPS", default_value = "false")]
   https: bool,
 
-  /// Enable http, currently has no effect
-  /// since http is always enabled
-  #[clap(short = 'T', long, env = "MXD_HTTP", default_value = "true")]
-  http: bool,
-
   /// TLS certificate file
   #[clap(short = 'c', long, env = "MXD_TLS_CERT")]
   tls_cert: Option<String>,
@@ -87,6 +82,7 @@ pub(crate) struct StartupArgs {
 
 impl TryFrom<Cli> for StartupArgs {
   type Error = anyhow::Error;
+
   fn try_from(config: Cli) -> Result<Self, Self::Error> {
     let args = StartupArgs {
       http_port: config.http_port,
