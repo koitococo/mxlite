@@ -17,7 +17,7 @@ use time::OffsetDateTime;
 
 /// Generates a self-signed CA certificate and its private key.
 /// Returns the PEM encoded certificate and private key.
-pub fn generate_ca_cert() -> Result<(String, String)> {
+pub(crate) fn generate_ca_cert() -> Result<(String, String)> {
   let mut params = CertificateParams::default();
   params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
   params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
@@ -41,7 +41,7 @@ pub fn generate_ca_cert() -> Result<(String, String)> {
 /// Generates a TLS server certificate signed by the provided CA.
 /// Takes the CA certificate PEM, CA private key PEM, and subject alternative names.
 /// Returns the PEM encoded server certificate and its private key.
-pub fn generate_signed_cert(
+pub(crate) fn generate_signed_cert(
   ca_cert_pem: &str, ca_key_pem: &str, subject_alt_names: Vec<String>,
 ) -> Result<(String, String)> {
   let ca_params = CertificateParams::from_ca_cert_pem(ca_cert_pem)?;
@@ -76,60 +76,64 @@ pub fn generate_signed_cert(
   Ok((cert_pem, key_pem))
 }
 
-#[test]
-fn test_generate_certs() {
-  let (ca_cert, ca_key) = generate_ca_cert().unwrap();
-  let subject_alt_names = vec!["localhost".to_string()];
-  let (server_cert, server_key) = generate_signed_cert(&ca_cert, &ca_key, subject_alt_names).unwrap();
-  assert!(!ca_cert.is_empty());
-  assert!(!ca_key.is_empty());
-  assert!(!server_cert.is_empty());
-  assert!(!server_key.is_empty());
-
-  println!("CA Cert:\n{}", ca_cert);
-  println!("CA Key:\n{}", ca_key);
-  println!("Server Cert:\n{}", server_cert);
-  println!("Server Key:\n{}", server_key);
-}
-
-pub fn get_cert_from_file(
+pub(crate) fn get_cert_from_file(
   cert_path: Option<String>, key_path: Option<String>, ca_cert_path: Option<String>, ca_key_path: Option<String>,
   allow_self_signed: bool,
 ) -> Result<(String, String)> {
-  if cert_path.clone().map(|p| exists(p).is_ok_and(|inner| inner)).unwrap_or(false) &&
-    key_path.clone().map(|p| exists(p).is_ok_and(|inner| inner)).unwrap_or(false)
-  {
-    let cert = std::fs::read_to_string(cert_path.unwrap())?;
-    let key = std::fs::read_to_string(key_path.unwrap())?;
-    Ok((cert, key))
-  } else if allow_self_signed {
-    let (ca_cert, ca_key) = if ca_cert_path.clone().map(|p| exists(p).is_ok_and(|inner| inner)).unwrap_or(false) &&
-      ca_key_path.clone().map(|p| exists(p).is_ok_and(|inner| inner)).unwrap_or(false)
-    {
-      let ca_cert = std::fs::read_to_string(ca_cert_path.clone().unwrap())?;
-      let ca_key = std::fs::read_to_string(ca_key_path.clone().unwrap())?;
-      (ca_cert, ca_key)
-    } else {
-      generate_ca_cert()?
-    };
-    let subject_alt_names = vec!["localhost".to_string()];
-    let (cert, key) = generate_signed_cert(&ca_cert, &ca_key, subject_alt_names)?;
-    if let Some(cert_path) = cert_path {
+  if cert_path.is_some() && key_path.is_some() {
+    let cert_path = cert_path.as_ref().unwrap();
+    let key_path = key_path.as_ref().unwrap();
+    let cert_existed = exists(cert_path)?;
+    let key_existed = exists(key_path)?;
+    if cert_existed ^ key_existed {
+      Err(anyhow::anyhow!(
+        "Neither certificate or private key is missing: {}, {}. Keep both existed or both non-existed",
+        cert_path,
+        key_path
+      ))
+    } else if cert_existed && key_existed {
+      let cert = std::fs::read_to_string(cert_path)?;
+      let key = std::fs::read_to_string(key_path)?;
+      Ok((cert, key))
+    } else if allow_self_signed {
+      let (ca_cert, ca_key) = if ca_cert_path.is_some() && ca_key_path.is_some() {
+        let ca_cert_path = ca_cert_path.as_ref().unwrap();
+        let ca_key_path = ca_key_path.as_ref().unwrap();
+        let ca_cert_existed = exists(ca_cert_path)?;
+        let ca_key_existed = exists(ca_key_path)?;
+        if ca_cert_existed ^ ca_key_existed {
+          return Err(anyhow::anyhow!(
+            "Neither CA certificate or CA private key is missing: {}, {}. Keep both existed or both non-existed",
+            ca_cert_path,
+            ca_key_path
+          ));
+        } else if ca_cert_existed && ca_key_existed {
+          let ca_cert = std::fs::read_to_string(ca_cert_path)?;
+          let ca_key = std::fs::read_to_string(ca_key_path)?;
+          (ca_cert, ca_key)
+        } else {
+          let (ca_cert, ca_key) = generate_ca_cert()?;
+          std::fs::write(ca_cert_path, &ca_cert)?;
+          std::fs::write(ca_key_path, &ca_key)?;
+          (ca_cert, ca_key)
+        }
+      } else {
+        return Err(anyhow::anyhow!(
+          "CA certificate and key paths must be provided to store the generated CA certificate and key"
+        ));
+      };
+      let subject_alt_names = vec!["localhost".to_string()];
+      let (cert, key) = generate_signed_cert(&ca_cert, &ca_key, subject_alt_names)?;
       std::fs::write(cert_path, &cert)?;
-    }
-    if let Some(key_path) = key_path {
       std::fs::write(key_path, &key)?;
+
+      Ok((cert, key))
+    } else {
+      Err(anyhow::anyhow!(
+        "Certificate and key paths must be provided and existed"
+      ))
     }
-    if let Some(ca_cert_path) = ca_cert_path {
-      std::fs::write(ca_cert_path, &ca_cert)?;
-    }
-    if let Some(ca_key_path) = ca_key_path {
-      std::fs::write(ca_key_path, &ca_key)?;
-    }
-    Ok((cert, key))
   } else {
-    Err(anyhow::anyhow!(
-      "Certificate and key paths are not provided or file path is not existed"
-    ))
+    Err(anyhow::anyhow!("Certificate and key paths must be provided"))
   }
 }

@@ -38,6 +38,10 @@ struct Cli {
   #[clap(short = 'D', long, env = "MXD_DETECT_OTHERS", default_value = "false")]
   detect_others: bool,
 
+  /// Enable http
+  #[clap(short = 'T', long, env = "MXD_HTTP", default_value = "true")]
+  http: bool,
+
   /// Enable https
   #[clap(short = 't', long, env = "MXD_HTTPS", default_value = "false")]
   https: bool,
@@ -72,6 +76,7 @@ pub(crate) struct HttpsArgs {
 
 #[derive(Clone, Debug)]
 pub(crate) struct StartupArgs {
+  pub(crate) enable_http: bool,
   pub(crate) http_port: u16,
   pub(crate) https_args: Option<HttpsArgs>,
   pub(crate) apikey: Option<String>,
@@ -85,6 +90,7 @@ impl TryFrom<Cli> for StartupArgs {
 
   fn try_from(config: Cli) -> Result<Self, Self::Error> {
     let args = StartupArgs {
+      enable_http: config.http,
       http_port: config.http_port,
       https_args: if config.https {
         let (cert, key) = get_cert_from_file(
@@ -154,7 +160,10 @@ async fn main() -> Result<()> {
 
   let discovery_ = discovery::serve(args.clone());
 
-  if let Err(e) = server::main(args).await {
+  if !args.enable_http {
+    info!("HTTP server is disabled");
+    return Ok(());
+  } else if let Err(e) = server::main(args).await {
     log::error!("Failed to start server: {}", e);
   }
 
