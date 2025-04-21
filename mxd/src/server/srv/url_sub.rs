@@ -282,7 +282,7 @@ fn format_urls(schema: &str, ips: Vec<u32>, port: u16, path: Option<String>) -> 
       path
     })
     .unwrap_or("".to_string());
-  ips.iter().map(|ip| format!("{}://{}:{}{}", schema, ip, port, path,).to_string()).collect()
+  ips.iter().map(|ip| format!("{}://{}:{}{}", schema, u32_to_ipv4_str(*ip), port, path,).to_string()).collect()
 }
 
 #[inline]
