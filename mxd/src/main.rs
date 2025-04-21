@@ -18,7 +18,8 @@ struct Cli {
   #[clap(short = 'P', long, env = "MXD_HTTPS_PORT", default_value = "8443")]
   https_port: u16,
 
-  /// API key for authentication
+  /// API key for authentication, optional.
+  /// If not provided, authentication will be disabled.
   #[clap(short = 'k', long, env = "MXD_APIKEY")]
   apikey: Option<String>,
 
@@ -26,7 +27,7 @@ struct Cli {
   #[clap(short = 's', long, env = "MXD_STATIC_PATH")]
   static_path: Option<String>,
 
-  /// Enable discovery
+  /// Disable agent discovery
   #[clap(short = 'd', long, env = "MXD_DISCOVERY", default_value = "false")]
   disable_discovery: bool,
 
@@ -34,15 +35,26 @@ struct Cli {
   #[clap(short = 'v', long, env = "MXD_VERBOSE", default_value = "false")]
   verbose: bool,
 
-  /// Detect other controllers
+  /// Detect other controllers by broadcasting on the network
   #[clap(short = 'D', long, env = "MXD_DETECT_OTHERS", default_value = "false")]
   detect_others: bool,
 
-  /// Enable http
+  /// Enable http service
+  /// 
+  /// Disable http service will also make discovery service and https services disabled
   #[clap(short = 'T', long, env = "MXD_HTTP", default_value = "true")]
   http: bool,
 
-  /// Enable https
+  /// Enable https service. Requires TLS certificate and key.
+  ///
+  /// To use existed TLS certificate:
+  ///   --https --tls-cert <existed_file> --tls-key <existed_file>
+  ///
+  /// To generate TLS certificate with existed CA:
+  ///   --https --generate-cert --tls-cert <non-existed_file> --tls-key <non-existed_file> --ca-cert <existed_file> --ca-key <existed_file>
+  /// 
+  /// To generate both CA and TLS cert:
+  ///   --https --generate-cert --tls-cert <non-existed_file> --tls-key <non-existed_file> --ca-cert <non-existed_file> --ca-key <non-existed_file>
   #[clap(short = 't', long, env = "MXD_HTTPS", default_value = "false")]
   https: bool,
 
@@ -62,7 +74,11 @@ struct Cli {
   #[clap(short = 'E', long, env = "MXD_CA_KEY")]
   ca_key: Option<String>,
 
-  /// Generate self-signed certificate on startup
+  /// Generate self-signed certificate on startup with ECDSA signing using the P-256 curves and SHA-256 hashing
+  /// 
+  /// The generated certificate will be valid for 7 days and generated CA for 30 days. 
+  /// 
+  /// Must be used with `--https`, `--tls-cert`,`--tls-key`, `--ca-cert`, `--ca-key`.
   #[clap(short = 'g', long, env = "MXD_GENERATE_CERT", default_value = "false")]
   generate_cert: bool,
 }
