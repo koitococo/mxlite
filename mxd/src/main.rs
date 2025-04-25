@@ -40,7 +40,7 @@ struct Cli {
   detect_others: bool,
 
   /// Enable http service
-  /// 
+  ///
   /// Disable http service will also make discovery service and https services disabled
   #[clap(short = 'T', long, env = "MXD_HTTP", default_value = "true")]
   http: bool,
@@ -52,7 +52,7 @@ struct Cli {
   ///
   /// To generate TLS certificate with existed CA:
   ///   --https --generate-cert --tls-cert <non-existed_file> --tls-key <non-existed_file> --ca-cert <existed_file> --ca-key <existed_file>
-  /// 
+  ///
   /// To generate both CA and TLS cert:
   ///   --https --generate-cert --tls-cert <non-existed_file> --tls-key <non-existed_file> --ca-cert <non-existed_file> --ca-key <non-existed_file>
   #[clap(short = 't', long, env = "MXD_HTTPS", default_value = "false")]
@@ -75,9 +75,9 @@ struct Cli {
   ca_key: Option<String>,
 
   /// Generate self-signed certificate on startup with ECDSA signing using the P-256 curves and SHA-256 hashing
-  /// 
-  /// The generated certificate will be valid for 7 days and generated CA for 30 days. 
-  /// 
+  ///
+  /// The generated certificate will be valid for 7 days and generated CA for 30 days.
+  ///
   /// Must be used with `--https`, `--tls-cert`,`--tls-key`, `--ca-cert`, `--ca-key`.
   #[clap(short = 'g', long, env = "MXD_GENERATE_CERT", default_value = "false")]
   generate_cert: bool,

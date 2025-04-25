@@ -39,7 +39,7 @@ impl ToString for AgentMessage {
   fn to_string(&self) -> String { serde_json::to_string(self).unwrap() }
 }
 
-mod requests;
 mod events;
-pub use requests::*;
+mod requests;
 pub use events::*;
+pub use requests::*;

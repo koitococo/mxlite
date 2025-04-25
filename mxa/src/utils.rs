@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use futures_util::StreamExt;
 use log::{error, info};
 use rand::Rng;
-use tokio::{fs::File, io::AsyncWriteExt, process::Command};
+use tokio::{fs::File, io::AsyncWriteExt, process::Command, select};
 use xxhash_rust::xxh3::Xxh3;
 
 /// Get the machine UUID from the DMI table.
@@ -166,5 +166,17 @@ pub(crate) async fn execute_shell(cmd: &String, use_script_file: bool) -> Result
     execute_script(cmd).await
   } else {
     execute_command(&("sh".to_string()), vec!["-c".to_string(), cmd.to_string()]).await
+  }
+}
+
+pub(crate) async fn safe_sleep(duration: u64) -> bool {
+  select! {
+      _ = tokio::time::sleep(std::time::Duration::from_millis(duration)) => {
+          false
+      },
+      _ = tokio::signal::ctrl_c() => {
+          info!("Received Ctrl-C, shutting down");
+          true
+      }
   }
 }

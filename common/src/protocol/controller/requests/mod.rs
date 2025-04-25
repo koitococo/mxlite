@@ -1,4 +1,4 @@
-mod controller;
 mod agent;
-pub use controller::*;
+mod controller;
 pub use agent::*;
+pub use controller::*;
