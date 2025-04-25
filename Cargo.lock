@@ -1401,7 +1401,7 @@ dependencies = [
 [[package]]
 name = "rcgen"
 version = "0.13.2"
-source = "git+ssh://git@github.com/koitococo/rcgen.git?branch=v0.13.2#9b2e2b84d54990741f7fd80abcd14f5f8036b6a7"
+source = "git+https://github.com/koitococo/rcgen.git?branch=v0.13.2#9b2e2b84d54990741f7fd80abcd14f5f8036b6a7"
 dependencies = [
  "pem",
  "ring",
