@@ -20,9 +20,9 @@ async fn main() -> Result<()> {
 
   info!("MetalX Agent - Launching");
   let host_id = match utils::get_machine_id() {
-    Ok(id) => id,
-    Err(err) => {
-      error!("Failed to get machine id: {}", err);
+    Some(id) => id,
+    None => {
+      error!("Failed to get machine id");
       if cfg!(debug_assertions) {
         "cafecafecafecafecafecafecafecafe".to_string()
       } else {
