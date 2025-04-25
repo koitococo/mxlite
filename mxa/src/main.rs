@@ -24,9 +24,9 @@ async fn main() -> Result<()> {
     None => {
       error!("Failed to get machine id");
       if cfg!(debug_assertions) {
-        "cafecafecafecafecafecafecafecafe".to_string()
+        "cafecafe-cafe-cafe-cafe-cafecafecafe".to_string()
       } else {
-        std::process::exit(1);
+        utils::get_random_uuid()
       }
     }
   };

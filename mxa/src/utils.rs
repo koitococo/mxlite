@@ -1,11 +1,6 @@
-use std::{
-  fs::File as std_File,
-  hash::Hasher,
-  io::Read,
-  process::Stdio,
-};
+use std::{fs::File as std_File, hash::Hasher, io::Read, process::Stdio};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use futures_util::StreamExt;
 use log::{error, info};
 use rand::Rng;
@@ -30,6 +25,12 @@ pub(crate) fn get_machine_id() -> Option<String> {
     Ok(uuid) => return Some(uuid),
     Err(err) => {
       error!("Failed to get machine id from dmi table: {}", err);
+    }
+  }
+  match get_systemd_machine_id() {
+    Ok(uuid) => return Some(uuid),
+    Err(err) => {
+      error!("Failed to get machine id from systemd: {}", err);
     }
   }
   error!("Failed to get machine id from all sources");
@@ -66,10 +67,35 @@ fn get_uuid_string_from_buf(buf: &[u8], offset: usize) -> Result<String> {
   let p2 = u16::from_le_bytes(buf[offset + 4..offset + 6].try_into()?);
   let p3 = u16::from_le_bytes(buf[offset + 6..offset + 8].try_into()?);
   let p4 = u16::from_be_bytes(buf[offset + 8..offset + 10].try_into()?);
-  let p5:[u8; 6] = buf[offset + 10..offset + 16].try_into()?;
-  Ok(format!("{:08x}-{:04x}-{:04x}-{:04x}-", p1, p2, p3, p4) + &p5.iter().map(|b| format!("{:02x}", b)).collect::<String>())
+  let p5: [u8; 6] = buf[offset + 10..offset + 16].try_into()?;
+  Ok(
+    format!("{:08x}-{:04x}-{:04x}-{:04x}-", p1, p2, p3, p4) +
+      &p5.iter().map(|b| format!("{:02x}", b)).collect::<String>(),
+  )
 }
 
+fn get_systemd_machine_id() -> Result<String> {
+  let mut fd = std_File::open("/etc/machine-id")?;
+  let mut buf = String::new();
+  fd.read_to_string(&mut buf)?;
+  let uuid = buf.trim().to_string();
+  Ok(format!(
+    "{}-{}-{}-{}-{}",
+    &uuid[0..8],
+    &uuid[8..12],
+    &uuid[12..16],
+    &uuid[16..20],
+    &uuid[20..32]
+  ))
+}
+
+pub(crate) fn get_random_uuid() -> String {
+  let p5: [u8; 6] = rand::random();
+  format!(
+    "00000000-0000-0000-0000-{}",
+    &p5.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+  )
+}
 pub(crate) fn random_str(len: usize) -> String {
   let mut rng = rand::rng();
   let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
