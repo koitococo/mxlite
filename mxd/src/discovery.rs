@@ -58,6 +58,10 @@ async fn recv_pack(socket: &UdpSocket, port: u16) -> Result<()> {
 }
 
 pub fn serve(args: StartupArgs) -> Option<(JoinHandle<()>, CancellationToken)> {
+  if !args.enable_http {
+    info!("HTTP server is disabled");
+    return None;
+  }
   if args.disable_discovery {
     info!("Discovery service is disabled");
     return None;

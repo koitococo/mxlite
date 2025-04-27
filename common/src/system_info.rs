@@ -247,9 +247,7 @@ mod linux {
         kname: blk_name.to_string(),
         model: read_str_optional(format!("/sys/block/{}/device/model", blk_name).as_str())?,
         size: read_int(format!("/sys/block/{}/size", blk_name).as_str()).map(|sectors| {
-          read_int(format!("/sys/block/{}/queue/logical_block_size", blk_name).as_str())
-            .map(|block_size| sectors * block_size)
-            .unwrap_or(sectors * 512)
+          sectors << 9 // 512 bytes per sector
         })?,
         removable: read_bool(format!("/sys/block/{}/removable", blk_name).as_str())?,
         uuid: read_str_optional(format!("/sys/block/{}/uuid", blk_name).as_str())?,

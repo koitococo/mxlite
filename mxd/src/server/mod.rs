@@ -15,11 +15,18 @@ use axum::{
 use futures::future::join3;
 use log::{debug, error, info};
 use serde::Serialize;
-use tokio::{net::{TcpListener, TcpStream}, select, time::sleep};
+use tokio::{
+  net::{TcpListener, TcpStream},
+  select,
+  time::sleep,
+};
 use tokio_rustls::{
+  TlsAcceptor,
   rustls::{
-    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer}, ServerConfig
-  }, server::TlsStream, TlsAcceptor
+    ServerConfig,
+    pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject},
+  },
+  server::TlsStream,
 };
 use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
@@ -138,10 +145,7 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
     )?;
     let listener = TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), https.port)).await?;
     let acceptor = TlsAcceptor::from(Arc::new(tls_config));
-    let tls_listener = TlsListener {
-      listener,
-      acceptor,
-    };
+    let tls_listener = TlsListener { listener, acceptor };
     let serve = axum::serve(tls_listener, route_srv).with_graceful_shutdown(async move {
       select! {
           _ = halt_https.cancelled() => {

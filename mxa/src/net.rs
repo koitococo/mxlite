@@ -1,5 +1,5 @@
 use common::{
-  discovery::discover_controller,
+  discovery::discover_controller_once,
   protocol::{
     controller::{
       AgentMessage,
@@ -32,7 +32,7 @@ use tokio_tungstenite::{
   },
 };
 
-use crate::executor::handle_event;
+use crate::{executor::handle_event, utils::safe_sleep};
 
 pub(crate) struct Context {
   pub(crate) request: ControllerRequest,
@@ -61,23 +61,25 @@ impl Context {
   }
 }
 
-async fn safe_sleep(duration: u64) -> bool {
-  select! {
-      _ = tokio::time::sleep(std::time::Duration::from_millis(duration)) => {
-          false
-      },
-      _ = tokio::signal::ctrl_c() => {
-          info!("Received Ctrl-C, shutting down");
-          true
-      }
-  }
-}
-
 enum BreakLoopReason {
   LostConnection,
   Shutdown,
   ErrorCaptured,
   Nonbreak,
+}
+
+async fn discover_controller() -> Vec<String> {
+  loop {
+    match discover_controller_once().await {
+      Ok(r) => return r,
+      Err(e) => {
+        error!("Failed to discover controller: {}", e);
+        if safe_sleep(5000).await {
+          return vec![];
+        }
+      }
+    }
+  }
 }
 
 pub(crate) async fn handle_ws_url(
@@ -89,19 +91,12 @@ pub(crate) async fn handle_ws_url(
       env_ws_url
     } else {
       info!("Discovering controller URL...");
-      let discovery_response = select! {
+      let controllers = select! {
           r = discover_controller() => r,
           _ = tokio::signal::ctrl_c() => {
               info!("Received Ctrl-C, canceling discovery and exit");
               return Ok(true);
           }
-      };
-      let controllers = match discovery_response {
-        Ok(c) => c,
-        Err(err) => {
-          error!("Failed to discover controller: {}", err);
-          std::process::exit(1);
-        }
       };
       if controllers.is_empty() {
         warn!("No controller discovered");

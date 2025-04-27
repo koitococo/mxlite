@@ -28,14 +28,6 @@ pub enum DiscoveryError {
   RequestError(#[from] reqwest::Error),
 }
 
-pub async fn discover_controller() -> Result<Vec<String>, DiscoveryError> {
-  loop {
-    if let Ok(r) = discover_controller_once().await {
-      return Ok(r);
-    }
-  }
-}
-
 pub async fn discover_controller_once() -> Result<Vec<String>, DiscoveryError> {
   info!("Discovering controller");
   let socket = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await?;
