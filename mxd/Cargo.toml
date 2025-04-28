@@ -3,6 +3,7 @@ name = "mxd"
 version = "0.1.0"
 edition = "2024"
 authors = ["Koi to Coco <admin@koito.fun>"]
+build = "../build.rs"
 
 [dependencies]
 common = { path = "../common" }

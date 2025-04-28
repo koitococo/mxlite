@@ -8,7 +8,10 @@ mod server;
 mod states;
 mod utils;
 
-#[derive(Parser)]
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH"));
+
+#[derive(Parser, Debug)]
+#[command(version = VERSION)]
 struct Cli {
   /// HTTP port to listen on
   #[clap(short = 'p', long, env = "MXD_PORT", default_value = "8080")]

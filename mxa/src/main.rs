@@ -7,7 +7,10 @@ mod executor;
 mod net;
 mod utils;
 
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH"));
+
 #[derive(Parser, Debug)]
+#[command(version = VERSION)]
 struct Cli {
   #[clap(short, long, env = "MXA_WS_URL")]
   ws_url: Option<String>,
