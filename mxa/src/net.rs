@@ -183,15 +183,11 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<B
       }
       msg = rx.next() => {
         match handle_ws_event(msg, tx_tx.clone()).await {
-          Ok(c) => {
-            match c {
-              BreakLoopReason::LostConnection => {
-                error!("Lost connection to controller");
-                break Ok(BreakLoopReason::LostConnection);
-              }
-              _ => ()
-            }
+          Ok(BreakLoopReason::LostConnection) => {
+            error!("Lost connection to controller");
+            break Ok(BreakLoopReason::LostConnection);
           }
+          Ok(_) => { continue }
           Err(e) => {
               error!("Failed to handle WebSocket event: {}", e);
               break Ok(BreakLoopReason::ErrorCaptured);

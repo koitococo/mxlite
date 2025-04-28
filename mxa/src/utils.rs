@@ -49,17 +49,19 @@ fn get_machine_id_from_dmi_entry() -> Result<String> {
   let mut fd = std_File::open("/sys/firmware/dmi/entries/1-0/raw")?;
   let mut buf = [0u8; 24];
   fd.read_exact(&mut buf)?;
-  Ok(get_uuid_string_from_buf(&buf, 8)?)
+  get_uuid_string_from_buf(&buf, 8)
 }
 
 fn get_machine_id_from_dmi_table() -> Result<String> {
   let mut fd = std_File::open("/sys/firmware/dmi/tables/DMI")?;
   let mut buf = [0u8; 1024];
-  fd.read(&mut buf)?;
+  if fd.read(&mut buf)? < 25 {
+    anyhow::bail!("Failed to read DMI table");
+  }
   let Some(offset) = buf.windows(5).position(|w| w == b"\x00\x01\x1b\x01\x00") else {
     return Err(anyhow!("Failed to find entry pattern in DMI table"));
   };
-  Ok(get_uuid_string_from_buf(&buf, offset + 9)?)
+  get_uuid_string_from_buf(&buf, offset + 9)
 }
 
 fn get_uuid_string_from_buf(buf: &[u8], offset: usize) -> Result<String> {
