@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use log::{LevelFilter, info, warn};
+use log::{info, warn};
 use utils::get_cert_from_file;
 
 mod discovery;
@@ -137,17 +137,7 @@ impl TryFrom<Cli> for StartupArgs {
 async fn main() -> Result<()> {
   let config = Cli::parse();
 
-  simple_logger::SimpleLogger::new()
-    .with_level(if cfg!(debug_assertions) {
-      LevelFilter::Trace
-    } else if config.verbose {
-      LevelFilter::Debug
-    } else {
-      LevelFilter::Info
-    })
-    .with_local_timestamps()
-    .env()
-    .init()?;
+  common::logger::install_logger(config.verbose);
 
   let args = StartupArgs::try_from(config)?;
   info!("MetalX Controller - Launching");
