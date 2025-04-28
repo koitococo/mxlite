@@ -1,22 +1,26 @@
 use anyhow::Result;
-use log::{LevelFilter, error, info};
+use clap::Parser;
+use log::{error, info};
 use utils::random_str;
 
 mod executor;
 mod net;
 mod utils;
 
+#[derive(Parser, Debug)]
+struct Cli {
+  #[clap(short, long, env = "MXA_WS_URL")]
+  ws_url: Option<String>,
+
+  #[clap(short, long, env = "MXA_VERBOSE")]
+  verbose: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-  simple_logger::SimpleLogger::new()
-    .with_level(if cfg!(debug_assertions) {
-      LevelFilter::Trace
-    } else {
-      LevelFilter::Info
-    })
-    .with_utc_timestamps()
-    .env()
-    .init()?;
+  let config = Cli::parse();
+
+  common::logger::install_logger(config.verbose);
 
   info!("MetalX Agent - Launching");
   let host_id = match utils::get_machine_id() {
@@ -34,13 +38,12 @@ async fn main() -> Result<()> {
   info!("Host ID: {}", host_id);
   info!("Session ID: {}", session_id);
   let envs = std::env::vars()
-    .filter(|(k, _)| k.starts_with("MXA_"))
+    .filter(|(k, _)| k.starts_with("MX_"))
     .map(|(k, v)| format!("{}={}", k, v))
     .collect::<Vec<_>>();
 
   loop {
-    let ws_url = std::env::var("MXD_URL").ok();
-    match net::handle_ws_url(ws_url.clone(), host_id.clone(), session_id.clone(), envs.clone()).await {
+    match net::handle_ws_url(config.ws_url.clone(), host_id.clone(), session_id.clone(), envs.clone()).await {
       Err(err) => {
         error!("Agent failed: {}", err);
       }

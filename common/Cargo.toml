@@ -6,9 +6,10 @@ edition = "2024"
 [dependencies]
 base16ct = "0.2.0"
 base64 = "0.22.1"
+colored = "3.0.0"
 digest = "0.10.7"
 futures-util = "0.3.31"
-log = "0.4.27"
+log = { version = "0.4.27", features = ["std"] }
 md-5 = "0.10.6"
 nix = { version = "0.29.0", features = ["feature"] }
 reqwest = { version = "0.12.15", default-features = false }
@@ -18,6 +19,7 @@ sha1 = "0.10.6"
 sha2 = "0.10.8"
 sha3 = "0.10.8"
 thiserror = "2.0.12"
+time = { version = "0.3.41", features = ["formatting", "local-offset"] }
 tokio = { version = "1.44.1", features = ["fs", "io-util", "macros", "sync"] }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 
