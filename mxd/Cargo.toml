@@ -16,7 +16,6 @@ tokio-util = { version = "0.7.13", features = ["io"] }
 if-addrs = "0.13.3"
 rand = "0.9.0"
 futures-util = "0.3.31"
-async-stream = "0.3.6"
 tower-http = { version = "0.6.2", features = ["fs"] }
 clap = { version = "4.5.35", features = ["derive", "env"] }
 url = "2.5.4"
