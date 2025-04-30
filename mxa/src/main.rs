@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use log::{error, info};
+use log::{error, info, warn};
 use utils::random_str;
 
 mod executor;
@@ -19,6 +19,7 @@ struct Cli {
   verbose: bool,
 }
 
+#[cfg(target_os = "linux")]
 #[tokio::main]
 async fn main() -> Result<()> {
   let config = Cli::parse();
@@ -26,6 +27,10 @@ async fn main() -> Result<()> {
   common::logger::install_logger(config.verbose);
 
   info!("MetalX Agent - Launching");
+  if !nix::unistd::geteuid().is_root() {
+    warn!("Running mxa as unprivileged user may cause permission issues");
+  }
+
   let host_id = match utils::get_machine_id() {
     Some(id) => id,
     None => {

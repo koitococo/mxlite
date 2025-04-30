@@ -38,6 +38,7 @@ pub(crate) fn get_machine_id() -> Option<String> {
 }
 
 fn get_machine_id_from_sysfs() -> Result<String> {
+  info!("Reading machine id from sysfs");
   let mut fd = std_File::open("/sys/class/dmi/id/product_uuid")?;
   let mut buf = String::new();
   fd.read_to_string(&mut buf)?;
@@ -46,6 +47,7 @@ fn get_machine_id_from_sysfs() -> Result<String> {
 }
 
 fn get_machine_id_from_dmi_entry() -> Result<String> {
+  info!("Reading machine id from dmi entry");
   let mut fd = std_File::open("/sys/firmware/dmi/entries/1-0/raw")?;
   let mut buf = [0u8; 24];
   fd.read_exact(&mut buf)?;
@@ -53,6 +55,7 @@ fn get_machine_id_from_dmi_entry() -> Result<String> {
 }
 
 fn get_machine_id_from_dmi_table() -> Result<String> {
+  info!("Reading machine id from dmi table");
   let mut fd = std_File::open("/sys/firmware/dmi/tables/DMI")?;
   let mut buf = [0u8; 1024];
   if fd.read(&mut buf)? < 25 {
@@ -77,6 +80,7 @@ fn get_uuid_string_from_buf(buf: &[u8], offset: usize) -> Result<String> {
 }
 
 fn get_systemd_machine_id() -> Result<String> {
+  info!("Reading machine id from systemd");
   let mut fd = std_File::open("/etc/machine-id")?;
   let mut buf = String::new();
   fd.read_to_string(&mut buf)?;
