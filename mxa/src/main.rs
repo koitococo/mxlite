@@ -31,29 +31,27 @@ async fn main() -> Result<()> {
     warn!("Running mxa as unprivileged user may cause permission issues");
   }
 
-  let host_id = match utils::get_machine_id() {
-    Some(id) => id,
-    None => {
-      error!("Failed to get machine id");
-      if cfg!(debug_assertions) {
-        "cafecafe-cafe-cafe-cafe-cafecafecafe".to_string()
-      } else {
-        utils::get_random_uuid()
-      }
+  let host_id = utils::get_machine_id().unwrap_or_else(|| {
+    error!("Failed to get machine id");
+    if cfg!(debug_assertions) {
+      "cafecafe-cafe-cafe-cafe-cafecafecafe".to_string()
+    } else {
+      utils::get_random_uuid()
     }
-  };
+  });
+
   let session_id = random_str(16);
-  info!("Host ID: {}", host_id);
-  info!("Session ID: {}", session_id);
+  info!("Host ID: {host_id}");
+  info!("Session ID: {session_id}");
   let envs = std::env::vars()
     .filter(|(k, _)| k.starts_with("MX_"))
-    .map(|(k, v)| format!("{}={}", k, v))
+    .map(|(k, v)| format!("{k}={v}"))
     .collect::<Vec<_>>();
 
   loop {
     match net::handle_ws_url(config.ws_url.clone(), host_id.clone(), session_id.clone(), envs.clone()).await {
       Err(err) => {
-        error!("Agent failed: {}", err);
+        error!("Agent failed: {err}");
       }
       Ok(exit) => {
         if exit {

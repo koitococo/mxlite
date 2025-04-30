@@ -64,7 +64,7 @@ impl Listener for TlsListener {
       match self.try_accept().await {
         Ok(tup) => return tup,
         Err(e) => {
-          error!("Error accepting connection: {}", e);
+          error!("Error accepting connection: {e}");
           continue;
         }
       }
@@ -170,14 +170,14 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
     },
     async {
       if let Err(e) = http_serve.await {
-        error!("HTTP server error: {}", e);
+        error!("HTTP server error: {e}");
         halt_signal.cancel();
       }
     },
     async {
       if let Some(s) = https_serve {
         if let Err(e) = s.await {
-          error!("HTTPS server error: {}", e);
+          error!("HTTPS server error: {e}");
           halt_signal.cancel();
         }
       }

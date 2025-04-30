@@ -122,9 +122,7 @@ mod linux {
   }
 
   fn get_nic_info() -> Vec<NicInfo> {
-    Networks::new_with_refreshed_list()
-      .iter()
-      .map(|(_, network)| NicInfo {
+    Networks::new_with_refreshed_list().values().map(|network| NicInfo {
         mac_address: network.mac_address().to_string(),
         mtu: network.mtu(),
         ip: network
@@ -177,7 +175,7 @@ mod linux {
         Ok(num) => Ok(num),
         Err(e) => Err(io::Error::new(
           io::ErrorKind::InvalidData,
-          format!("Failed to parse integer from {}: {}", path, e),
+          format!("Failed to parse integer from {path}: {e}"),
         )),
       }
     }
@@ -215,7 +213,7 @@ mod linux {
       } else {
         Err(io::Error::new(
           io::ErrorKind::NotFound,
-          format!("Path {} does not exist", path),
+          format!("Path {path} does not exist"),
         ))
       }
     }
@@ -225,7 +223,7 @@ mod linux {
       let symlink = std::fs::canonicalize(path).map_err(|e| {
         io::Error::new(
           io::ErrorKind::NotFound,
-          format!("Failed to read symlink {}: {}", path, e),
+          format!("Failed to read symlink {path}: {e}"),
         )
       })?;
       Ok(symlink.to_string_lossy().to_string())
@@ -233,29 +231,29 @@ mod linux {
 
     #[inline]
     fn create_root_blk_info(blk_name: &str) -> Result<BlkInfo, io::Error> {
-      let maj_min = read_str(format!("/sys/block/{}/dev", blk_name).as_str())?;
-      let disk_seq = read_int(format!("/sys/block/{}/diskseq", blk_name).as_str())?;
+      let maj_min = read_str(format!("/sys/block/{blk_name}/dev").as_str())?;
+      let disk_seq = read_int(format!("/sys/block/{blk_name}/diskseq").as_str())?;
 
       Ok(BlkInfo {
         maj_min,
         disk_seq,
-        name: read_kv(format!("/sys/block/{}/uevent", blk_name).as_str())?
+        name: read_kv(format!("/sys/block/{blk_name}/uevent").as_str())?
           .iter()
           .find(|(k, _)| k == "DEVNAME")
           .map(|(_, v)| v.to_string())
           .unwrap_or_default(),
         kname: blk_name.to_string(),
-        model: read_str_optional(format!("/sys/block/{}/device/model", blk_name).as_str())?,
-        size: read_int(format!("/sys/block/{}/size", blk_name).as_str()).map(|sectors| {
+        model: read_str_optional(format!("/sys/block/{blk_name}/device/model").as_str())?,
+        size: read_int(format!("/sys/block/{blk_name}/size").as_str()).map(|sectors| {
           sectors << 9 // 512 bytes per sector
         })?,
-        removable: read_bool(format!("/sys/block/{}/removable", blk_name).as_str())?,
-        uuid: read_str_optional(format!("/sys/block/{}/uuid", blk_name).as_str())?,
-        wwid: read_str_optional(format!("/sys/block/{}/wwid", blk_name).as_str())?,
-        readonly: read_bool(format!("/sys/block/{}/ro", blk_name).as_str())?,
-        path: checked_path(format!("/dev/{}", blk_name).as_str()).ok(),
-        path_by_seq: checked_path(format!("/dev/disk/by-diskseq/{}", disk_seq).as_str()).ok(),
-        subsystem: read_symlink(format!("/sys/block/{}/device/subsystem", blk_name).as_str()).ok().map(|s| {
+        removable: read_bool(format!("/sys/block/{blk_name}/removable").as_str())?,
+        uuid: read_str_optional(format!("/sys/block/{blk_name}/uuid").as_str())?,
+        wwid: read_str_optional(format!("/sys/block/{blk_name}/wwid").as_str())?,
+        readonly: read_bool(format!("/sys/block/{blk_name}/ro").as_str())?,
+        path: checked_path(format!("/dev/{blk_name}").as_str()).ok(),
+        path_by_seq: checked_path(format!("/dev/disk/by-diskseq/{disk_seq}").as_str()).ok(),
+        subsystem: read_symlink(format!("/sys/block/{blk_name}/device/subsystem").as_str()).ok().map(|s| {
           match s.as_str() {
             "/sys/class/nvme" => "nvme".to_string(),
             "/sys/bus/scsi" => "scsi".to_string(),

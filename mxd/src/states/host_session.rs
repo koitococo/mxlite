@@ -80,7 +80,7 @@ impl HostSession {
 
   pub(crate) fn set_task_finished(&self, id: u64, resp: AgentResponse) {
     if !self.tasks.send(id, TaskState::Finished(resp)) {
-      warn!("Failed to set task state for id: {}", id);
+      warn!("Failed to set task state for id: {id}");
     }
   }
 

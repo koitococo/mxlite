@@ -14,7 +14,7 @@ struct ApiState {
 pub(super) fn auth_middleware<T: Clone + Send + Sync + 'static>(router: Router<T>, key: Option<String>) -> Router<T> {
   router.layer(middleware::from_fn_with_state(
     ApiState {
-      apikey: key.map(|sk| format!("Bearer {}", sk)),
+      apikey: key.map(|sk| format!("Bearer {sk}")),
     },
     async |State(state): State<ApiState>, request: Request, next: Next| {
       if let Some(sk) = state.apikey {

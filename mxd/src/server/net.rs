@@ -34,12 +34,12 @@ pub(super) async fn handle_ws(
   State(app): State<SharedAppState>, ConnectInfo(socket_info): ConnectInfo<SocketConnectInfo>, headers: HeaderMap,
   ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-  info!("WebSocket connection with {:?}", socket_info);
+  info!("WebSocket connection with {socket_info:?}");
   let ct = app.cancel_signal.child_token();
   match handle_ws_inner(app, socket_info, headers, ws, ct).await {
     Ok(ws) => ws,
     Err(e) => {
-      error!("Failed to handle WebSocket connection: {}", e);
+      error!("Failed to handle WebSocket connection: {e}");
       (StatusCode::BAD_REQUEST, "Bad Request").into_response()
     }
   }
@@ -104,7 +104,7 @@ async fn handle_socket(
         }
         req = session.recv_req() => {
             if let Some(req) = req {
-                debug!("Sending request: {:?}", req);
+                debug!("Sending request: {req:?}");
                 ws.send(req.to_string().into()).await?;
             } else {
                 info!("Internal channel closed for id: {}", params.host_id);
@@ -117,7 +117,7 @@ async fn handle_socket(
                 Ok(true) => continue,
                 Ok(false) => break,
                 Err(e) => {
-                    error!("Failed to handle WebSocket message: {}", e);
+                    error!("Failed to handle WebSocket message: {e}");
                 }
             }
         }
@@ -130,7 +130,7 @@ async fn handle_socket(
                 break;
             }
             if let Err(e) = ws.send(Message::Ping("ping".into())).await {
-                error!("Failed to send ping: {}", e);
+                error!("Failed to send ping: {e}");
                 break;
             }
         }
@@ -153,7 +153,7 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
       }
       Message::Binary(_) => Err(anyhow!("Binary message not supported")), // Not supported yet
       Message::Close(e) => {
-        debug!("WebSocket connection closed: {:?}", e);
+        debug!("WebSocket connection closed: {e:?}");
         Ok(false)
       }
       Message::Ping(_) | Message::Pong(_) => Ok(true), // handled by underlying library

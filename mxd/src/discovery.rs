@@ -20,7 +20,7 @@ fn get_ws_urls(port: u16) -> Result<Vec<String>> {
       }
       let ip = if_.ip();
       if ip.is_ipv4() {
-        Some(format!("ws://{}:{}/ws", ip, port))
+        Some(format!("ws://{ip}:{port}/ws"))
       } else {
         None
       }
@@ -51,7 +51,7 @@ async fn recv_pack(socket: &UdpSocket, port: u16) -> Result<()> {
       Ok(())
     }
     Err(err) => {
-      error!("Failed to receive data: {}", err);
+      error!("Failed to receive data: {err}");
       Err(err.into())
     }
   }
@@ -82,14 +82,14 @@ pub fn serve(args: StartupArgs) -> Option<(JoinHandle<()>, CancellationToken)> {
               }
               r = recv_pack(&socket, port) => {
                   if let Err(err) = r {
-                      error!("Failed to handle discovery message: {}", err);
+                      error!("Failed to handle discovery message: {err}");
                   }
               }
           }
         }
       }
       Err(e) => {
-        error!("Failed to start discovery service: {:?}", e);
+        error!("Failed to start discovery service: {e:?}");
       }
     }
   });

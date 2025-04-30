@@ -21,7 +21,7 @@ impl Log for SimpleLogger {
         return;
       };
 
-      let timestamp = format!("{:<29}", timestamp).bright_black().to_string();
+      let timestamp = format!("{timestamp:<29}").bright_black().to_string();
 
       let level_string = match record.level() {
         Level::Error => format!("{:<5}", record.level().to_string()).red().to_string(),
@@ -52,9 +52,7 @@ pub fn install_logger(verbose: bool) -> bool {
       } else {
         LevelFilter::Debug
       }
-    } else {
-      if verbose { LevelFilter::Debug } else { LevelFilter::Info }
-    },
+    } else if verbose { LevelFilter::Debug } else { LevelFilter::Info },
   };
 
   log::set_max_level(logger.level);

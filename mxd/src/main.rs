@@ -155,14 +155,14 @@ async fn main() -> Result<()> {
         warn!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
         warn!("Discovered {} controllers", controllers.len());
         for controller in controllers {
-          warn!("Controller: {}", controller);
+          warn!("Controller: {controller}");
         }
         warn!("Please check if you are running multiple controllers on the same network");
         warn!("This may cause conflicts and unexpected behavior");
         warn!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
       }
       Err(err) => {
-        log::error!("Failed to discover other controllers: {}", err);
+        log::error!("Failed to discover other controllers: {err}");
       }
     }
   }
@@ -173,7 +173,7 @@ async fn main() -> Result<()> {
     info!("HTTP server is disabled");
     return Ok(());
   } else if let Err(e) = server::main(args).await {
-    log::error!("Failed to start server: {}", e);
+    log::error!("Failed to start server: {e}");
   }
 
   if let Some((join, cancel)) = discovery_ {
