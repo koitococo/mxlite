@@ -29,15 +29,15 @@ impl FileMapStorage {
   pub(crate) fn add_file_map(&self, file_path: String, publish_name: String) -> Result<(), String> {
     let path = Path::new(&file_path);
     if !path.exists() {
-      return Err(format!("File not found: {}", file_path));
+      return Err(format!("File not found: {file_path}"));
     }
     if !path.is_file() {
-      return Err(format!("Path is not a file: {}", file_path));
+      return Err(format!("Path is not a file: {file_path}"));
     }
     let new_path = path
       .canonicalize()
       .map(|p| p.to_string_lossy().to_string())
-      .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
+      .map_err(|e| format!("Failed to canonicalize path: {e}"))?;
     self.0.insert(
       publish_name,
       MapItem::File(FileMap {
@@ -55,15 +55,15 @@ impl FileMapStorage {
   pub(crate) fn add_dir_map(&self, dir_path: String, publish_name: String) -> Result<(), String> {
     let path = Path::new(&dir_path);
     if !path.exists() {
-      return Err(format!("Directory not found: {}", dir_path));
+      return Err(format!("Directory not found: {dir_path}"));
     }
     if !path.is_dir() {
-      return Err(format!("Path is not a directory: {}", dir_path));
+      return Err(format!("Path is not a directory: {dir_path}"));
     }
     let new_path = path
       .canonicalize()
       .map(|p| p.to_string_lossy().to_string())
-      .map_err(|e| format!("Failed to canonicalize path: {}", e))?;
+      .map_err(|e| format!("Failed to canonicalize path: {e}"))?;
     self.0.insert(publish_name, MapItem::Dir(new_path));
     Ok(())
   }

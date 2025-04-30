@@ -30,9 +30,9 @@ pub enum MuxError<K, D, T: Transport<Item = (K, D)>> {
 impl<K, D, T: Transport<Item = (K, D)>> Display for MuxError<K, D, T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      MuxError::TransportError(e) => write!(f, "Transport error: {}", e),
-      MuxError::SendCallbackError(e) => write!(f, "Send callback error: {}", e),
-      MuxError::SendError(e) => write!(f, "Send error: {}", e),
+      MuxError::TransportError(e) => write!(f, "Transport error: {e}"),
+      MuxError::SendCallbackError(e) => write!(f, "Send callback error: {e}"),
+      MuxError::SendError(e) => write!(f, "Send error: {e}"),
       MuxError::ClosedTransport => write!(f, "Closed transport"),
     }
   }

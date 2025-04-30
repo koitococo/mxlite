@@ -93,7 +93,7 @@ async fn get_by_host(
         }
       }
       Err(e) => {
-        error!("Failed to parse URL: {}", e);
+        error!("Failed to parse URL: {e}");
         (
           StatusCode::INTERNAL_SERVER_ERROR,
           Json(GetUrlSubResponse {
@@ -150,7 +150,7 @@ async fn get_by_host_ip(
         )
       }
       Err(e) => {
-        error!("Failed to match local IP: {}", e);
+        error!("Failed to match local IP: {e}");
         (
           StatusCode::INTERNAL_SERVER_ERROR,
           Json(GetUrlSubResponse {
@@ -208,7 +208,7 @@ async fn get_by_ip(
   let ips = match match_local_ip(target) {
     Ok(inner) => inner,
     Err(e) => {
-      error!("Failed to match local IP: {}", e);
+      error!("Failed to match local IP: {e}");
       return (
         StatusCode::INTERNAL_SERVER_ERROR,
         Json(GetUrlSubResponse {
@@ -248,7 +248,7 @@ async fn get_remote_ip_by_host_ip(
         )
       }
       Err(e) => {
-        error!("Failed to match local IP: {}", e);
+        error!("Failed to match local IP: {e}");
         (
           StatusCode::INTERNAL_SERVER_ERROR,
           Json(GetUrlSubResponse {

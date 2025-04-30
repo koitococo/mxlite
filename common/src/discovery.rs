@@ -40,7 +40,7 @@ pub async fn discover_controller_once() -> Result<Vec<String>, DiscoveryError> {
   let req_str = req.to_string();
   let req_bin = req_str.as_bytes();
   for _ in 0..10 {
-    debug!("Sending discovery request: {}", req_str);
+    debug!("Sending discovery request: {req_str}");
     socket
       .send_to(
         req_bin,
@@ -77,7 +77,7 @@ async fn recv_pack(socket: &UdpSocket) -> Result<DiscoveryResponse, DiscoveryErr
       }
     }
     Err(err) => {
-      error!("Failed to receive data: {}", err);
+      error!("Failed to receive data: {err}");
       Err(err.into())
     }
   }
@@ -95,11 +95,11 @@ async fn handle_pack(r: Result<DiscoveryResponse, DiscoveryError>) -> Option<Vec
         }
       }
       Err(err) => {
-        error!("Failed to handle discovery response: {}", err);
+        error!("Failed to handle discovery response: {err}");
       }
     },
     Err(err) => {
-      error!("Failed to handle discovery message: {}", err);
+      error!("Failed to handle discovery message: {err}");
     }
   }
   None
@@ -109,15 +109,15 @@ async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<String>, DiscoveryEr
   let ws2: Vec<String> = join_all(resp.ws.iter().map(async |ws: &String| -> Option<String> {
     if let Ok(mut url) = Url::from_str(ws.as_str()) {
       if url.set_scheme("http").is_err() {
-        warn!("Invalid URL: {}", ws);
+        warn!("Invalid URL: {ws}");
         return None;
       }
-      debug!("Pinging controller with url: {}", ws);
+      debug!("Pinging controller with url: {ws}");
       if let Err(e) = http_ping(url, 5).await {
-        warn!("Failed to ping controller: {}: {}", ws, e);
+        warn!("Failed to ping controller: {ws}: {e}");
         return None;
       }
-      info!("Discovered controller: {}", ws);
+      info!("Discovered controller: {ws}");
       return Some(ws.clone());
     }
     None
