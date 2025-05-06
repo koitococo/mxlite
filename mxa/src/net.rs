@@ -202,8 +202,8 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<B
                 break Ok(BreakLoopReason::ErrorCaptured);
             }
         } else {
-            info!("Internal channel closed");
-            break Ok(BreakLoopReason::Shutdown);
+          info!("Internal channel closed");
+          break Ok(BreakLoopReason::Shutdown);
         }
       }
     }

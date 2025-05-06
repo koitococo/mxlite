@@ -1,3 +1,5 @@
+use std::fs;
+
 use anyhow::Result;
 use clap::Parser;
 use log::{error, info, warn};
@@ -5,6 +7,7 @@ use utils::random_str;
 
 mod executor;
 mod net;
+pub mod script;
 mod utils;
 
 const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH"));
@@ -12,11 +15,17 @@ const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH")
 #[derive(Parser, Debug)]
 #[command(version = VERSION)]
 struct Cli {
+  /// Connect to controller with Websocket URL. This option will disable discovery.
   #[clap(short, long, env = "MXA_WS_URL")]
   ws_url: Option<String>,
 
+  /// Be verbose
   #[clap(short, long, env = "MXA_VERBOSE")]
   verbose: bool,
+
+  /// Execute provided lua script. This option will not start agent.
+  #[clap(long)]
+  script: Option<String>,
 }
 
 #[cfg(target_os = "linux")]
@@ -25,6 +34,10 @@ async fn main() -> Result<()> {
   let config = Cli::parse();
 
   common::logger::install_logger(config.verbose);
+
+  if let Some(script_path) = config.script {
+    return script_main(script_path).await;
+  }
 
   info!("MetalX Agent - Launching");
   if !nix::unistd::geteuid().is_root() {
@@ -60,4 +73,20 @@ async fn main() -> Result<()> {
       }
     }
   }
+}
+
+async fn script_main(script: String) -> Result<()> {
+  let content = match fs::read_to_string(script) {
+    Ok(content) => content,
+    Err(e) => {
+      error!("Failed to read script: {e}");
+      return Ok(());
+    }
+  };
+  let mut ctx = crate::script::ExecutorContext::new();
+  ctx.init()?;
+  if let Err(e) = ctx.eval_async(&content).await {
+    error!("Failed to execute script: {e}");
+  }
+  Ok(())
 }

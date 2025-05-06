@@ -1,6 +1,6 @@
 use std::{fs::File as std_File, hash::Hasher, io::Read, process::Stdio};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use futures_util::StreamExt;
 use log::{error, info};
 use rand::Rng;
@@ -62,7 +62,7 @@ fn get_machine_id_from_dmi_table() -> Result<String> {
     anyhow::bail!("Failed to read DMI table");
   }
   let Some(offset) = buf.windows(5).position(|w| w == b"\x00\x01\x1b\x01\x00") else {
-    return Err(anyhow!("Failed to find entry pattern in DMI table"));
+    anyhow::bail!("Failed to find entry pattern in DMI table")
   };
   get_uuid_string_from_buf(&buf, offset + 9)
 }
