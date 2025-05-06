@@ -227,13 +227,13 @@ impl IntoLua for ValueType {
   fn into_lua(self, lua: &Lua) -> mlua::Result<Value> { self.try_into_lua(lua) }
 }
 
-impl Into<Option<String>> for ValueType {
-  fn into(self) -> Option<String> { if let ValueType::String(v) = self { Some(v) } else { None } }
+impl From<ValueType> for Option<String> {
+  fn from(val: ValueType) -> Self { if let ValueType::String(v) = val { Some(v) } else { None } }
 }
 
-impl Into<Option<i64>> for ValueType {
-  fn into(self) -> Option<i64> {
-    if let ValueType::Integer(v) = self {
+impl From<ValueType> for Option<i64> {
+  fn from(val: ValueType) -> Self {
+    if let ValueType::Integer(v) = val {
       Some(v)
     } else {
       None
@@ -241,13 +241,13 @@ impl Into<Option<i64>> for ValueType {
   }
 }
 
-impl Into<Option<f64>> for ValueType {
-  fn into(self) -> Option<f64> { if let ValueType::Float(v) = self { Some(v) } else { None } }
+impl From<ValueType> for Option<f64> {
+  fn from(val: ValueType) -> Self { if let ValueType::Float(v) = val { Some(v) } else { None } }
 }
 
-impl Into<Option<bool>> for ValueType {
-  fn into(self) -> Option<bool> {
-    if let ValueType::Boolean(v) = self {
+impl From<ValueType> for Option<bool> {
+  fn from(val: ValueType) -> Self {
+    if let ValueType::Boolean(v) = val {
       Some(v)
     } else {
       None
@@ -255,10 +255,10 @@ impl Into<Option<bool>> for ValueType {
   }
 }
 
-impl Into<Option<HashMap<String, ValueType>>> for ValueType {
-  fn into(self) -> Option<HashMap<String, ValueType>> { if let ValueType::Table(v) = self { Some(v) } else { None } }
+impl From<ValueType> for Option<HashMap<String, ValueType>> {
+  fn from(val: ValueType) -> Self { if let ValueType::Table(v) = val { Some(v) } else { None } }
 }
 
-impl Into<Option<Vec<ValueType>>> for ValueType {
-  fn into(self) -> Option<Vec<ValueType>> { if let ValueType::Array(v) = self { Some(v) } else { None } }
+impl From<ValueType> for Option<Vec<ValueType>> {
+  fn from(val: ValueType) -> Self { if let ValueType::Array(v) = val { Some(v) } else { None } }
 }

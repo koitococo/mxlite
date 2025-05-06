@@ -40,6 +40,10 @@ pub struct ExecutorContext {
   inited: bool,
 }
 
+impl Default for ExecutorContext {
+  fn default() -> Self { Self::new() }
+}
+
 impl ExecutorContext {
   pub fn new() -> Self {
     let lua = Lua::new();
@@ -104,7 +108,7 @@ fn lua_json_encode(_: &Lua, vt: Value) -> mlua::Result<String> {
   let json = match serde_json::to_string(&v) {
     Ok(v) => v,
     Err(e) => {
-      return Err(mlua::Error::RuntimeError(format!("Failed to serialize to JSON: {}", e)));
+      return Err(mlua::Error::RuntimeError(format!("Failed to serialize to JSON: {e}")));
     }
   };
   Ok(json)
@@ -114,7 +118,7 @@ fn lua_json_decode(lua: &Lua, s: String) -> mlua::Result<Value> {
   let v: ValueType = match serde_json::from_str(&s).ok() {
     Some(v) => v,
     None => {
-      return Err(mlua::Error::RuntimeError(format!("Failed to parse JSON: {}", s)));
+      return Err(mlua::Error::RuntimeError(format!("Failed to parse JSON: {s}")));
     }
   };
   let vt = v.try_into_lua(lua)?;
@@ -194,31 +198,31 @@ struct LuaFetchResponse {
   error: Option<String>,
 }
 
-impl Into<ValueType> for LuaFetchResponse {
-  fn into(self) -> ValueType {
+impl From<LuaFetchResponse> for ValueType {
+  fn from(val: LuaFetchResponse) -> Self {
     let mut table = HashMap::new();
-    table.insert("ok".to_string(), ValueType::Boolean(self.ok));
-    table.insert("status".to_string(), ValueType::Integer(self.status as i64));
-    if let Some(v) = self.status_text {
+    table.insert("ok".to_string(), ValueType::Boolean(val.ok));
+    table.insert("status".to_string(), ValueType::Integer(val.status as i64));
+    if let Some(v) = val.status_text {
       table.insert("statusText".to_string(), ValueType::String(v));
     }
-    if let Some(v) = self.headers {
+    if let Some(v) = val.headers {
       let mut headers = HashMap::new();
       for (k, v) in v {
         headers.insert(k, ValueType::String(v));
       }
       table.insert("headers".to_string(), ValueType::Table(headers));
     }
-    if let Some(v) = self.text {
+    if let Some(v) = val.text {
       table.insert("text".to_string(), ValueType::String(v));
     }
-    if let Some(v) = self.json {
+    if let Some(v) = val.json {
       table.insert("json".to_string(), v);
     }
-    if let Some(v) = self.length {
+    if let Some(v) = val.length {
       table.insert("length".to_string(), ValueType::Integer(v as i64));
     }
-    if let Some(v) = self.error {
+    if let Some(v) = val.error {
       table.insert("error".to_string(), ValueType::String(v));
     }
     ValueType::Table(table)
@@ -226,12 +230,23 @@ impl Into<ValueType> for LuaFetchResponse {
 }
 
 async fn lua_fetch(_: Lua, req: ValueType) -> mlua::Result<ValueType> {
-  debug!("lua_fetch: {:?}", req);
+  debug!("lua_fetch: {req:?}");
   let req: LuaFetchRequst = req.try_into()?;
   let client = reqwest::Client::new();
   let mut builder = client.request(
-    match req.method {
-      _ => Method::GET,
+    {
+      if let Some(v) = req.method {
+        match v.to_uppercase().as_str() {
+          "GET" => Method::GET,
+          "POST" => Method::POST,
+          "PUT" => Method::PUT,
+          "DELETE" => Method::DELETE,
+          "PATCH" => Method::PATCH,
+          _ => return Err(mlua::Error::RuntimeError(format!("Unsupported HTTP method: {v}"))),
+        }
+      } else {
+        Method::GET
+      }
     },
     req.url,
   );
@@ -244,7 +259,7 @@ async fn lua_fetch(_: Lua, req: ValueType) -> mlua::Result<ValueType> {
     builder = builder.body(body);
   }
   let output = req.output.unwrap_or(LuaFetchOutput::Text);
-  debug!("lua_fetch: constructed request: {:?}", builder);
+  debug!("lua_fetch: constructed request: {builder:?}");
   let response = match builder.send().await {
     Ok(r) => r,
     Err(e) => {
