@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, fmt::Display, marker::PhantomData};
 
 use anyhow::Result;
 use mlua::{FromLua, IntoLua, Lua, Table, Value};
@@ -232,13 +232,7 @@ impl From<ValueType> for Option<String> {
 }
 
 impl From<ValueType> for Option<i64> {
-  fn from(val: ValueType) -> Self {
-    if let ValueType::Integer(v) = val {
-      Some(v)
-    } else {
-      None
-    }
-  }
+  fn from(val: ValueType) -> Self { if let ValueType::Integer(v) = val { Some(v) } else { None } }
 }
 
 impl From<ValueType> for Option<f64> {
@@ -246,13 +240,7 @@ impl From<ValueType> for Option<f64> {
 }
 
 impl From<ValueType> for Option<bool> {
-  fn from(val: ValueType) -> Self {
-    if let ValueType::Boolean(v) = val {
-      Some(v)
-    } else {
-      None
-    }
-  }
+  fn from(val: ValueType) -> Self { if let ValueType::Boolean(v) = val { Some(v) } else { None } }
 }
 
 impl From<ValueType> for Option<HashMap<String, ValueType>> {
@@ -261,4 +249,14 @@ impl From<ValueType> for Option<HashMap<String, ValueType>> {
 
 impl From<ValueType> for Option<Vec<ValueType>> {
   fn from(val: ValueType) -> Self { if let ValueType::Array(v) = val { Some(v) } else { None } }
+}
+
+impl Display for ValueType {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "{}",
+      serde_json::to_string_pretty(self).map_err(|_| { std::fmt::Error {} })?
+    )
+  }
 }

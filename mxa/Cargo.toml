@@ -21,4 +21,4 @@ clap = { version = "4.5.37", features = ["derive", "env"] }
 mlua = { version = "0.10.3", features = ["vendored", "lua54", "async", "anyhow", "serialize", "send"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-nix = { version = "0.29.0", features = ["user"] }
+nix = { version = "0.29.0", features = ["user", "signal"] }
