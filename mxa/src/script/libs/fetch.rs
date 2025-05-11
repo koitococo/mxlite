@@ -5,7 +5,6 @@ use reqwest::Method;
 
 use crate::script::value_type::ValueType;
 
-
 #[derive(Debug, Clone)]
 enum LuaFetchOutput {
   Text,

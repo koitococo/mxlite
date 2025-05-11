@@ -122,7 +122,9 @@ mod linux {
   }
 
   fn get_nic_info() -> Vec<NicInfo> {
-    Networks::new_with_refreshed_list().values().map(|network| NicInfo {
+    Networks::new_with_refreshed_list()
+      .values()
+      .map(|network| NicInfo {
         mac_address: network.mac_address().to_string(),
         mtu: network.mtu(),
         ip: network
@@ -220,12 +222,8 @@ mod linux {
 
     #[inline]
     fn read_symlink(path: &str) -> Result<String, io::Error> {
-      let symlink = std::fs::canonicalize(path).map_err(|e| {
-        io::Error::new(
-          io::ErrorKind::NotFound,
-          format!("Failed to read symlink {path}: {e}"),
-        )
-      })?;
+      let symlink = std::fs::canonicalize(path)
+        .map_err(|e| io::Error::new(io::ErrorKind::NotFound, format!("Failed to read symlink {path}: {e}")))?;
       Ok(symlink.to_string_lossy().to_string())
     }
 

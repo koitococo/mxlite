@@ -58,7 +58,7 @@ impl SubprocessInstance {
   async fn write_in(&mut self, data: String) -> anyhow::Result<()> {
     if let Some(stdin) = &mut self.stdin {
       trace!("Writing to stdin: {data}");
-      stdin.write(data.as_bytes()).await?;
+      let _ = stdin.write(data.as_bytes()).await?;
       stdin.flush().await?;
     }
     Ok(())
@@ -66,11 +66,12 @@ impl SubprocessInstance {
 
   async fn read_out(&mut self) -> anyhow::Result<Option<String>> {
     let mut buf = String::new();
-    if let Err(_) = tokio::time::timeout(Duration::from_secs(20), async {
+    if tokio::time::timeout(Duration::from_secs(20), async {
       trace!("Reading from stdout with deadline");
       self.stdout.read_line(&mut buf).await
     })
-    .await?
+    .await
+    .is_err()
     {
       return Ok(None);
     }
@@ -79,11 +80,12 @@ impl SubprocessInstance {
 
   async fn read_err(&mut self) -> anyhow::Result<Option<String>> {
     let mut buf = String::new();
-    if let Err(_) = tokio::time::timeout(Duration::from_secs(20), async {
+    if tokio::time::timeout(Duration::from_secs(20), async {
       trace!("Reading from stderr with deadline");
       self.stderr.read_line(&mut buf).await
     })
-    .await?
+    .await
+    .is_err()
     {
       return Ok(None);
     }
@@ -100,11 +102,12 @@ impl SubprocessInstance {
 
   async fn read_out_to_end(&mut self) -> anyhow::Result<Option<String>> {
     let mut buf = String::new();
-    if let Err(_) = tokio::time::timeout(Duration::from_secs(20), async {
+    if tokio::time::timeout(Duration::from_secs(20), async {
       trace!("Reading from stdout to end with deadline");
       self.stdout.read_to_string(&mut buf).await
     })
-    .await?
+    .await
+    .is_err()
     {
       return Ok(None);
     }
@@ -113,11 +116,12 @@ impl SubprocessInstance {
 
   async fn read_err_to_end(&mut self) -> anyhow::Result<Option<String>> {
     let mut buf = String::new();
-    if let Err(_) = tokio::time::timeout(Duration::from_secs(20), async {
+    if tokio::time::timeout(Duration::from_secs(20), async {
       trace!("Reading from stderr to end with deadline");
       self.stderr.read_to_string(&mut buf).await
     })
-    .await?
+    .await
+    .is_err()
     {
       return Ok(None);
     }
@@ -213,7 +217,7 @@ impl Subprocess {
       Ok(r)
     } else {
       error!("Failed to read from stdout: cannot borrow child");
-      return Err(mlua::Error::RuntimeError("Process not spawned".to_string()));
+      Err(mlua::Error::RuntimeError("Process not spawned".to_string()))
     }
   }
 
@@ -226,7 +230,7 @@ impl Subprocess {
       Ok(r)
     } else {
       error!("Failed to read from stderr: cannot borrow child");
-      return Err(mlua::Error::RuntimeError("Process not spawned".to_string()));
+      Err(mlua::Error::RuntimeError("Process not spawned".to_string()))
     }
   }
 
@@ -239,33 +243,33 @@ impl Subprocess {
       Ok(())
     } else {
       error!("Failed to close stdin: cannot borrow child");
-      return Err(mlua::Error::RuntimeError("Process not spawned".to_string()));
+      Err(mlua::Error::RuntimeError("Process not spawned".to_string()))
     }
   }
 
   async fn read_out_to_end(&mut self) -> mlua::Result<Option<String>> {
     if let Some(child) = &mut self.child {
-      let r= child
+      let r = child
         .read_out_to_end()
         .await
         .map_err(|e| mlua::Error::RuntimeError(format!("Failed to read from stdout: {e}")))?;
       Ok(r)
     } else {
       error!("Failed to read from stdout: cannot borrow child");
-      return Err(mlua::Error::RuntimeError("Process not spawned".to_string()));
+      Err(mlua::Error::RuntimeError("Process not spawned".to_string()))
     }
   }
 
   async fn read_err_to_end(&mut self) -> mlua::Result<Option<String>> {
     if let Some(child) = &mut self.child {
-      let r= child
+      let r = child
         .read_err_to_end()
         .await
         .map_err(|e| mlua::Error::RuntimeError(format!("Failed to read from stderr: {e}")))?;
       Ok(r)
     } else {
       error!("Failed to read from stderr: cannot borrow child");
-      return Err(mlua::Error::RuntimeError("Process not spawned".to_string()));
+      Err(mlua::Error::RuntimeError("Process not spawned".to_string()))
     }
   }
 

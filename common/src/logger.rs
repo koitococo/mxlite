@@ -15,8 +15,7 @@ impl Log for SimpleLogger {
 
   fn log(&self, record: &Record) {
     if self.enabled(record.metadata()) {
-
-      let Ok(Ok(timestamp)) = OffsetDateTime::now_local().map(|t|t.format(TIMESTAMP_FORMAT_OFFSET)) else {
+      let Ok(Ok(timestamp)) = OffsetDateTime::now_local().map(|t| t.format(TIMESTAMP_FORMAT_OFFSET)) else {
         eprintln!("Failed to get local time");
         return;
       };
@@ -52,7 +51,11 @@ pub fn install_logger(verbose: bool) -> bool {
       } else {
         LevelFilter::Debug
       }
-    } else if verbose { LevelFilter::Debug } else { LevelFilter::Info },
+    } else if verbose {
+      LevelFilter::Debug
+    } else {
+      LevelFilter::Info
+    },
   };
 
   log::set_max_level(logger.level);

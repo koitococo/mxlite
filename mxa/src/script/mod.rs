@@ -2,8 +2,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use mlua::{FromLuaMulti, IntoLuaMulti, Lua, MultiValue, StdLib};
-mod value_type;
 mod libs;
+mod value_type;
 use self::value_type::ValueType;
 pub struct VecValue(Vec<ValueType>);
 

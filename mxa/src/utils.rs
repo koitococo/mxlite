@@ -73,10 +73,7 @@ fn get_uuid_string_from_buf(buf: &[u8], offset: usize) -> Result<String> {
   let p3 = u16::from_le_bytes(buf[offset + 6..offset + 8].try_into()?);
   let p4 = u16::from_be_bytes(buf[offset + 8..offset + 10].try_into()?);
   let p5: [u8; 6] = buf[offset + 10..offset + 16].try_into()?;
-  Ok(
-    format!("{p1:08x}-{p2:04x}-{p3:04x}-{p4:04x}-") +
-      &p5.iter().map(|b| format!("{b:02x}")).collect::<String>(),
-  )
+  Ok(format!("{p1:08x}-{p2:04x}-{p3:04x}-{p4:04x}-") + &p5.iter().map(|b| format!("{b:02x}")).collect::<String>())
 }
 
 fn get_systemd_machine_id() -> Result<String> {
