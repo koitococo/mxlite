@@ -84,13 +84,10 @@ async fn script_main(script: String) -> Result<()> {
     }
   };
   let ctx = crate::script::ExecutorContext::try_new()?;
-  match ctx.eval_async(&content).await {
-    Err(e) => {
-      error!("Failed to execute script: {e}");
-    }
-    Ok(v) => {
-      info!("Script executed successfully: {v}");
-    }
+  if let Err(e) = ctx.exec_async(&content).await {
+    error!("Failed to execute script: {e}");
+  } else {
+    info!("Script executed successfully");
   }
   Ok(())
 }

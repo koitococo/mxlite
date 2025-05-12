@@ -23,11 +23,18 @@ pub struct FileTransferRequest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ScriptEvalRequest {
+  pub script: String,
+  pub args: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum ControllerRequestPayload {
   // None,
   CommandExecutionRequest(CommandExecutionRequest),
   FileTransferRequest(FileTransferRequest),
+  ScriptEvalRequest(ScriptEvalRequest),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
