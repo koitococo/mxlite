@@ -139,7 +139,7 @@ pub(crate) async fn upload_file(url: &str, path: &str) -> Result<()> {
 }
 
 /// Execute an external command and return its output.
-async fn execute_command(cmd: &String, args: Vec<String>) -> Result<(i32, String, String)> {
+pub(crate) async fn execute_command(cmd: &String, args: Vec<String>) -> Result<(i32, String, String)> {
   info!("Executing external command: {cmd} {args:?}");
   let child = Command::new(cmd)
     .args(args)

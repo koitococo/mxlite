@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CommandExecutionRequest {
   pub command: String,
-  pub use_script_file: bool,
+  pub args: Option<Vec<String>>,
+  pub use_script_file: Option<bool>,
+  pub use_shell: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

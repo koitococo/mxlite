@@ -10,7 +10,9 @@ use super::{SendReqResponse, send_req_helper};
 struct PostRequest {
   host: String,
   cmd: String,
+  args: Option<Vec<String>>,
   use_script: Option<bool>,
+  use_shell: Option<bool>,
 }
 
 async fn post(
@@ -21,7 +23,9 @@ async fn post(
     params.host,
     CommandExecutionRequest {
       command: params.cmd,
-      use_script_file: params.use_script.unwrap_or(false),
+      args: params.args,
+      use_script_file: params.use_script,
+      use_shell: params.use_shell,
     }
     .into(),
   )
