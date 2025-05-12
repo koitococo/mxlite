@@ -20,13 +20,19 @@ pub struct ScriptEvalResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ErrorResponse {
+  pub code: String,
+  pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum AgentResponsePayload {
   None,
   CommandExecutionResponse(CommandExecutionResponse),
   FileOperationResponse(FileOperationResponse),
   ScriptEvalResponse(ScriptEvalResponse),
-  Error(String),
+  Error(ErrorResponse),
 }
 
 impl From<CommandExecutionResponse> for AgentResponsePayload {
@@ -42,6 +48,11 @@ impl From<FileOperationResponse> for AgentResponsePayload {
 impl From<ScriptEvalResponse> for AgentResponsePayload {
   fn from(value: ScriptEvalResponse) -> Self {
     AgentResponsePayload::ScriptEvalResponse(value)
+  }
+}
+impl From<ErrorResponse> for AgentResponsePayload {
+  fn from(value: ErrorResponse) -> Self {
+    AgentResponsePayload::Error(value)
   }
 }
 

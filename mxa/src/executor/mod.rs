@@ -9,7 +9,7 @@ use log::warn;
 use script_task::ScriptTask;
 
 use crate::net::Context;
-use common::protocol::controller::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload};
+use common::protocol::controller::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse};
 
 trait TaskHandler {
   fn handle(self) -> impl Future<Output = Result<AgentResponsePayload>>;
@@ -47,7 +47,16 @@ pub(crate) async fn handle_event(ctx: Context) {
     Ok(payload) => ctx.respond(true, payload).await,
     Err(err) => {
       warn!("Failed to handle request: {err}");
-      ctx.respond(false, AgentResponsePayload::Error(err.to_string())).await;
+      ctx
+        .respond(
+          false,
+          ErrorResponse {
+            code: "ERR_GENERIC".to_string(),
+            message: err.to_string(),
+          }
+          .into(),
+        )
+        .await;
     }
   }
 }
