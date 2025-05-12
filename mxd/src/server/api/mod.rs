@@ -6,9 +6,10 @@ mod info;
 mod list;
 mod list_info;
 mod result;
+mod script;
 
 use axum::{Json, Router, http::StatusCode};
-use common::protocol::controller::ControllerRequest;
+use common::protocol::controller::ControllerRequestPayload;
 use log::error;
 use serde::Serialize;
 
@@ -31,7 +32,8 @@ pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
     .nest("/result", result::build(app.clone()))
     .nest("/exec", exec::build(app.clone()))
     .nest("/file", file::build(app.clone()))
-    .nest("/file-map", file_map::build(app.clone()));
+    .nest("/file-map", file_map::build(app.clone()))
+    .nest("/script", script::build(app.clone()));
   auth_middleware(router, app.startup_args.apikey.clone())
 }
 
@@ -43,7 +45,7 @@ struct SendReqResponse {
 }
 
 async fn send_req_helper(
-  app: SharedAppState, host: String, req: ControllerRequest,
+  app: SharedAppState, host: String, req: ControllerRequestPayload,
 ) -> (StatusCode, Json<SendReqResponse>) {
   if let Some(r) = app.host_session.send_req(&host, req).await {
     match r {

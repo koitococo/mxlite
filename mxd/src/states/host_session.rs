@@ -2,7 +2,9 @@ use std::{clone::Clone, sync::Arc};
 
 use anyhow::Result;
 use common::{
-  protocol::controller::{AgentResponse, ControllerMessage, ControllerRequest},
+  protocol::controller::{
+    AgentResponse, ControllerMessage, ControllerRequest, ControllerRequestPayload, PROTOCOL_VERSION,
+  },
   system_info::SystemInfo,
   utils::{
     mailbox::{Mailbox, SimpleMailbox},
@@ -105,13 +107,19 @@ impl HostSessionStorage {
   pub(crate) fn get(&self, id: &String) -> Option<Arc<HostSession>> { self.0.get(id) }
 
   pub(crate) async fn send_req(
-    &self, id: &String, mut req: ControllerRequest,
+    &self, id: &String, req: ControllerRequestPayload,
   ) -> Option<Result<u64, SendError<ControllerMessage>>> {
     if let Some(session) = self.0.get(id) {
       debug!("Sending request to session: {}", session.host_id);
       let task_id = session.new_task();
-      req.id = task_id;
-      if let Err(e) = session.send_req(req).await {
+      if let Err(e) = session
+        .send_req(ControllerRequest {
+          version: PROTOCOL_VERSION,
+          id: task_id,
+          payload: req,
+        })
+        .await
+      {
         Some(Err(e))
       } else {
         Some(Ok(task_id))

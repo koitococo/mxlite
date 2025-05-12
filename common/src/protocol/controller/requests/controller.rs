@@ -25,7 +25,6 @@ pub struct FileTransferRequest {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScriptEvalRequest {
   pub script: String,
-  pub args: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -35,6 +34,16 @@ pub enum ControllerRequestPayload {
   CommandExecutionRequest(CommandExecutionRequest),
   FileTransferRequest(FileTransferRequest),
   ScriptEvalRequest(ScriptEvalRequest),
+}
+
+impl From<CommandExecutionRequest> for ControllerRequestPayload {
+  fn from(value: CommandExecutionRequest) -> Self { ControllerRequestPayload::CommandExecutionRequest(value) }
+}
+impl From<FileTransferRequest> for ControllerRequestPayload {
+  fn from(value: FileTransferRequest) -> Self { ControllerRequestPayload::FileTransferRequest(value) }
+}
+impl From<ScriptEvalRequest> for ControllerRequestPayload {
+  fn from(value: ScriptEvalRequest) -> Self { ControllerRequestPayload::ScriptEvalRequest(value) }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

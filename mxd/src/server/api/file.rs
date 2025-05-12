@@ -1,7 +1,5 @@
 use axum::{Json, Router, extract::State, http::StatusCode, routing::method_routing};
-use common::protocol::controller::{
-  self, ControllerRequest, ControllerRequestPayload, FileTransferRequest, PROTOCOL_VERSION,
-};
+use common::protocol::controller::{self, FileTransferRequest};
 use serde::Deserialize;
 
 use crate::states::SharedAppState;
@@ -29,18 +27,15 @@ async fn post(
   send_req_helper(
     app,
     params.host,
-    ControllerRequest {
-      version: PROTOCOL_VERSION,
-      id: 0,
-      payload: ControllerRequestPayload::FileTransferRequest(FileTransferRequest {
-        url: params.url,
-        path: params.path,
-        operation: match params.op {
-          FileOperation::Download => controller::FileOperation::Download,
-          FileOperation::Upload => controller::FileOperation::Upload,
-        },
-      }),
-    },
+    FileTransferRequest {
+      url: params.url,
+      path: params.path,
+      operation: match params.op {
+        FileOperation::Download => controller::FileOperation::Download,
+        FileOperation::Upload => controller::FileOperation::Upload,
+      },
+    }
+    .into(),
   )
   .await
 }
