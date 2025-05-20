@@ -38,7 +38,7 @@ pub struct FileWriteResult {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type")]
+#[serde(tag = "operation")]
 pub enum FileOperationResponse {
   Download(FileDownloadResult),
   Upload(FileUploadResult),
@@ -68,7 +68,6 @@ pub struct ErrorResponse {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum AgentResponsePayload {
-  None,
   CommandExecutionResponse(CommandExecutionResponse),
   ScriptEvalResponse(ScriptEvalResponse),
   FileOperationResponse(FileOperationResponse),
@@ -93,4 +92,20 @@ pub struct AgentResponse {
   pub id: u64,
   pub ok: bool,
   pub payload: AgentResponsePayload,
+}
+
+#[test]
+fn test_agent_response_serialization() {
+  let response = AgentResponse {
+    id: 1,
+    ok: true,
+    payload: AgentResponsePayload::FileOperationResponse(FileOperationResponse::Download(FileDownloadResult {
+      ok: true,
+      hash: Some("dummy_hash".to_string()),
+    })),
+  };
+  let serialized = serde_json::to_string(&response).unwrap();
+  println!("Serialized: {}", serialized);
+  let deserialized: AgentResponse = serde_json::from_str(&serialized).unwrap();
+  println!("Deserialized: {:?}", deserialized);
 }

@@ -1,14 +1,9 @@
 use common::{
   discovery::discover_controller_once,
   protocol::{
-    handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+    handshake::{ConnectHandshake, CONNECT_HANDSHAKE_HEADER_KEY},
     messaging::{
-      AgentResponse,
-      AgentResponsePayload,
-      // CLOSE_CODE, CLOSE_MXA_SHUTDOWN,
-      ControllerRequest,
-      Message as ProtocolMessage,
-      PROTOCOL_VERSION,
+      AgentResponse, AgentResponsePayload, ControllerRequest, ErrorResponse, Message as ProtocolMessage, PROTOCOL_VERSION
     },
   },
   system_info::{self},
@@ -271,7 +266,10 @@ async fn handle_text_msg(msg: String, tx: Sender<Message>) -> Result<Option<Brea
           ProtocolMessage::AgentResponse(AgentResponse {
             id: u64::MAX,
             ok: false,
-            payload: AgentResponsePayload::None,
+            payload: ErrorResponse {
+              code: "ERR_PARSE".to_string(),
+              message: err.to_string(),
+            }.into(),
           })
           .try_into()?,
         ))

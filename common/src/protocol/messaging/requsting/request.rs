@@ -38,7 +38,7 @@ pub struct FileWriteParams {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type")]
+#[serde(tag = "operation")]
 pub enum FileTransferRequest {
   Download(FileDownloadParams),
   Upload(FileUploadParams),
@@ -89,10 +89,25 @@ impl From<FileWriteParams> for ControllerRequestPayload {
   fn from(value: FileWriteParams) -> Self { ControllerRequestPayload::FileTransferRequest(value.into()) }
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ControllerRequest {
   pub version: u32,
   pub id: u64,
   pub payload: ControllerRequestPayload,
+}
+
+#[test]
+fn test_controller_request_serialization() {
+  let request = ControllerRequest {
+    version: 1,
+    id: 1,
+    payload: ControllerRequestPayload::FileTransferRequest(FileTransferRequest::Download(FileDownloadParams {
+      src_url: "http://example.com/file.txt".to_string(),
+      dest_path: "/tmp/file.txt".to_string(),
+    })),
+  };
+  let serialized = serde_json::to_string(&request).unwrap();
+  println!("Serialized: {}", serialized);
+  let deserialized: ControllerRequest = serde_json::from_str(&serialized).unwrap();
+  println!("Deserialized: {:?}", deserialized);
 }
