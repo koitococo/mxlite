@@ -4,7 +4,7 @@ use crate::utils::{download_file, upload_file};
 use anyhow::Result;
 use common::{
   hash::xxh3_for_file,
-  protocol::controller::{AgentResponsePayload, FileOperation, FileOperationResponse, FileTransferRequest},
+  protocol::messaging::{AgentResponsePayload, FileOperation, FileOperationResponse, FileTransferRequest},
 };
 use log::warn;
 

@@ -50,14 +50,14 @@ where Event: Ord
 
   pub async fn reset(&self, event: Event) {
     let mut inner = self._inner.lock().await;
-    if let Some(map) = inner.as_mut() {
-      if let Entry::Occupied(e) = map.entry(event) {
-        let mut v = e.remove();
-        let (tx, rx) = v.as_mut();
-        drop(tx.take());
-        let mut rx = rx.lock().await;
-        while rx.recv().await.is_some() {}
-      }
+    if let Some(map) = inner.as_mut() &&
+      let Entry::Occupied(e) = map.entry(event)
+    {
+      let mut v = e.remove();
+      let (tx, rx) = v.as_mut();
+      drop(tx.take());
+      let mut rx = rx.lock().await;
+      while rx.recv().await.is_some() {}
     }
   }
 }

@@ -1,5 +1,5 @@
 use axum::{Json, Router, extract::State, http::StatusCode, routing::method_routing};
-use common::protocol::controller::CommandExecutionRequest;
+use common::protocol::messaging::CommandExecutionRequest;
 use serde::Deserialize;
 
 use crate::states::SharedAppState;

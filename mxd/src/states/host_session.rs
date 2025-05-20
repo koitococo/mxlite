@@ -2,9 +2,7 @@ use std::{clone::Clone, sync::Arc};
 
 use anyhow::Result;
 use common::{
-  protocol::controller::{
-    AgentResponse, ControllerMessage, ControllerRequest, ControllerRequestPayload, PROTOCOL_VERSION,
-  },
+  protocol::messaging::{AgentResponse, ControllerRequest, ControllerRequestPayload, Message, PROTOCOL_VERSION},
   system_info::SystemInfo,
   utils::{
     mailbox::{Mailbox, SimpleMailbox},
@@ -38,8 +36,8 @@ pub(crate) struct ExtraInfo {
 pub(crate) struct HostSession {
   pub(crate) host_id: String,
   pub(crate) session_id: String,
-  tx: Sender<ControllerMessage>,
-  rx: Mutex<Receiver<ControllerMessage>>,
+  tx: Sender<Message>,
+  rx: Mutex<Receiver<Message>>,
   tasks: SimpleMailbox<u64, TaskState>,
   pub(crate) extra: ExtraInfo,
   pub(crate) notify: Notify,
@@ -59,17 +57,17 @@ impl HostSession {
     }
   }
 
-  pub(crate) async fn send_req(&self, req: ControllerRequest) -> Result<(), SendError<ControllerMessage>> {
-    self
-      .tx
-      .send(ControllerMessage {
-        request: req,
-        events: None,
-      })
-      .await
+  pub(crate) async fn send_req(&self, req: ControllerRequest) -> Result<(), SendError<Message>> {
+    self.tx.send(Message::ControllerRequest(req)).await
   }
 
-  pub(crate) async fn recv_req(&self) -> Option<ControllerMessage> { self.rx.lock().await.recv().await }
+  pub(crate) async fn recv_req(&self) -> Option<ControllerRequest> {
+    if let Some(Message::ControllerRequest(req)) = self.rx.lock().await.recv().await {
+      Some(req)
+    } else {
+      None
+    }
+  }
 
   pub(crate) fn new_task(&self) -> u64 {
     loop {
@@ -108,7 +106,7 @@ impl HostSessionStorage {
 
   pub(crate) async fn send_req(
     &self, id: &String, req: ControllerRequestPayload,
-  ) -> Option<Result<u64, SendError<ControllerMessage>>> {
+  ) -> Option<Result<u64, SendError<Message>>> {
     if let Some(session) = self.0.get(id) {
       debug!("Sending request to session: {}", session.host_id);
       let task_id = session.new_task();

@@ -9,7 +9,7 @@ use log::warn;
 use script_task::ScriptTask;
 
 use crate::net::Context;
-use common::protocol::controller::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse};
+use common::protocol::messaging::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse};
 
 trait TaskHandler {
   fn handle(self) -> impl Future<Output = Result<AgentResponsePayload>>;

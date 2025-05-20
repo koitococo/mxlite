@@ -9,7 +9,7 @@ mod result;
 mod script;
 
 use axum::{Json, Router, http::StatusCode};
-use common::protocol::controller::ControllerRequestPayload;
+use common::protocol::messaging::ControllerRequestPayload;
 use log::error;
 use serde::Serialize;
 

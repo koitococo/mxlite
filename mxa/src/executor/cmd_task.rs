@@ -2,7 +2,7 @@ use log::debug;
 
 use crate::utils::{execute_command, execute_shell};
 use anyhow::Result;
-use common::protocol::controller::{AgentResponsePayload, CommandExecutionRequest, CommandExecutionResponse};
+use common::protocol::messaging::{AgentResponsePayload, CommandExecutionRequest, CommandExecutionResponse};
 
 use super::TaskHandler;
 

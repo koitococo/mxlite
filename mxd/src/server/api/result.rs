@@ -4,7 +4,7 @@ use axum::{
   http::StatusCode,
   routing::method_routing,
 };
-use common::protocol::controller::AgentResponse;
+use common::protocol::messaging::AgentResponse;
 use serde::{Deserialize, Serialize};
 
 use crate::states::{SharedAppState, host_session::TaskState};

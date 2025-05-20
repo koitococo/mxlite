@@ -1,5 +1,5 @@
 use axum::{Json, Router, extract::State, http::StatusCode, routing::method_routing};
-use common::protocol::controller::{self, FileTransferRequest};
+use common::protocol::messaging::{self, FileTransferRequest};
 use serde::Deserialize;
 
 use crate::states::SharedAppState;
@@ -31,8 +31,8 @@ async fn post(
       url: params.url,
       path: params.path,
       operation: match params.op {
-        FileOperation::Download => controller::FileOperation::Download,
-        FileOperation::Upload => controller::FileOperation::Upload,
+        FileOperation::Download => messaging::FileOperation::Download,
+        FileOperation::Upload => messaging::FileOperation::Upload,
       },
     }
     .into(),

@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::script::ExecutorContext;
-use common::protocol::controller::{AgentResponsePayload, ScriptEvalRequest, ScriptEvalResponse};
+use common::protocol::messaging::{AgentResponsePayload, ScriptEvalRequest, ScriptEvalResponse};
 
 use super::TaskHandler;
 

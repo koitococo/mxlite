@@ -1,16 +1,15 @@
 use common::{
   discovery::discover_controller_once,
   protocol::{
-    controller::{
-      AgentMessage,
+    handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+    messaging::{
       AgentResponse,
       AgentResponsePayload,
       // CLOSE_CODE, CLOSE_MXA_SHUTDOWN,
-      ControllerMessage,
       ControllerRequest,
+      Message as ProtocolMessage,
       PROTOCOL_VERSION,
     },
-    handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
   },
   system_info::{self},
 };
@@ -44,14 +43,11 @@ impl Context {
     if let Err(e) = self
       .tx
       .send(Message::Text(
-        AgentMessage {
-          response: Some(AgentResponse {
-            id: self.request.id,
-            ok,
-            payload,
-          }),
-          events: None,
-        }
+        ProtocolMessage::AgentResponse(AgentResponse {
+          id: self.request.id,
+          ok,
+          payload,
+        })
         .to_string(),
       ))
       .await
@@ -262,27 +258,22 @@ async fn handle_msg(msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason
 }
 
 async fn handle_text_msg(msg: String, tx: Sender<Message>) -> Result<Option<BreakLoopReason>> {
-  match ControllerMessage::from_str(msg.as_str()) {
-    Ok(event_msg) => {
-      info!("Received event: {event_msg:?}");
-      let ctx = Context {
-        request: event_msg.request,
-        tx,
-      };
+  match ProtocolMessage::from_str(msg.as_str()) {
+    Ok(ProtocolMessage::ControllerRequest(request)) => {
+      info!("Received event: {request:?}");
+      let ctx = Context { request, tx };
       tokio::spawn(async move { handle_event(ctx).await });
     }
+    Ok(_) => {}
     Err(err) => {
       error!("Failed to parse message: {err}");
       if let Err(e) = tx
         .send(Message::Text(
-          AgentMessage {
-            response: Some(AgentResponse {
-              id: u64::MAX,
-              ok: false,
-              payload: AgentResponsePayload::None,
-            }),
-            events: None,
-          }
+          ProtocolMessage::AgentResponse(AgentResponse {
+            id: u64::MAX,
+            ok: false,
+            payload: AgentResponsePayload::None,
+          })
           .to_string(),
         ))
         .await
