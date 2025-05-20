@@ -74,13 +74,13 @@ impl<Key: Ord + Clone + Debug, State> StateStorage<Key, State> for AtomticStateS
 
   fn map<F>(&self, key: Key, f: F) -> bool
   where F: FnOnce(&State) -> Option<State> {
-    if let Ok(mut guard) = self._inner.write() {
-      if let Entry::Occupied(mut e) = guard.entry(key) {
-        if let Some(new_val) = f(e.get()) {
-          e.insert(Arc::new(new_val));
-        }
-        return true;
+    if let Ok(mut guard) = self._inner.write() &&
+      let Entry::Occupied(mut e) = guard.entry(key)
+    {
+      if let Some(new_val) = f(e.get()) {
+        e.insert(Arc::new(new_val));
       }
+      return true;
     }
     false
   }

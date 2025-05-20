@@ -341,11 +341,10 @@ fn get_remote_ips(info: ExtraInfo) -> Vec<(u32, u8)> {
     .iter()
     .map(|nic| {
       nic.ip.iter().filter_map(|ip| {
-        if ip.version == 4 {
-          if let Ok(ipv4) = ipv4_str_to_u32(ip.addr.as_str()) {
+        if ip.version == 4
+          && let Ok(ipv4) = ipv4_str_to_u32(ip.addr.as_str()) {
             return Some((ipv4, ip.prefix));
           }
-        }
         None
       })
     })
