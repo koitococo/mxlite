@@ -175,11 +175,12 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
       }
     },
     async {
-      if let Some(s) = https_serve
-        && let Err(e) = s.await {
-          error!("HTTPS server error: {e}");
-          halt_signal.cancel();
-        }
+      if let Some(s) = https_serve &&
+        let Err(e) = s.await
+      {
+        error!("HTTPS server error: {e}");
+        halt_signal.cancel();
+      }
     },
   )
   .await;

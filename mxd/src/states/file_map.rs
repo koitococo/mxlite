@@ -76,49 +76,53 @@ impl FileMapStorage {
     &self, publish_name: &String, ensure_xxh3: bool, ensure_md5: bool, ensure_sha1: bool, ensure_sha256: bool,
     ensure_sha512: bool,
   ) -> Option<FileMap> {
-    if let Some(file_map) = self.0.get(publish_name)
-      && let MapItem::File(mut new_inner) = (*file_map).clone() {
-        if ensure_xxh3 && new_inner.xxh3.is_none()
-          && let Ok(hash) = hash::xxh3_for_file(&new_inner.file_path).await {
-            new_inner.xxh3 = Some(hash);
+    if let Some(file_map) = self.0.get(publish_name) &&
+      let MapItem::File(mut new_inner) = (*file_map).clone()
+    {
+      if ensure_xxh3 &&
+        new_inner.xxh3.is_none() &&
+        let Ok(hash) = hash::xxh3_for_file(&new_inner.file_path).await
+      {
+        new_inner.xxh3 = Some(hash);
+      }
+      if ensure_md5 || ensure_sha1 || ensure_sha256 || ensure_sha512 {
+        let calc_md5 = ensure_md5 && new_inner.sha1.is_none();
+        let calc_sha1 = ensure_sha1 && new_inner.sha1.is_none();
+        let calc_sha256 = ensure_sha256 && new_inner.sha256.is_none();
+        let calc_sha512 = ensure_sha512 && new_inner.sha512.is_none();
+        if let Ok((md5, sha1, sha256, sha512)) =
+          hash::sha_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await
+        {
+          if calc_md5 {
+            new_inner.md5 = md5;
           }
-        if ensure_md5 || ensure_sha1 || ensure_sha256 || ensure_sha512 {
-          let calc_md5 = ensure_md5 && new_inner.sha1.is_none();
-          let calc_sha1 = ensure_sha1 && new_inner.sha1.is_none();
-          let calc_sha256 = ensure_sha256 && new_inner.sha256.is_none();
-          let calc_sha512 = ensure_sha512 && new_inner.sha512.is_none();
-          if let Ok((md5, sha1, sha256, sha512)) =
-            hash::sha_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await
-          {
-            if calc_md5 {
-              new_inner.md5 = md5;
-            }
-            if calc_sha1 {
-              new_inner.sha1 = sha1;
-            }
-            if calc_sha256 {
-              new_inner.sha256 = sha256;
-            }
-            if calc_sha512 {
-              new_inner.sha512 = sha512;
-            }
+          if calc_sha1 {
+            new_inner.sha1 = sha1;
+          }
+          if calc_sha256 {
+            new_inner.sha256 = sha256;
+          }
+          if calc_sha512 {
+            new_inner.sha512 = sha512;
           }
         }
-        self.0.insert(publish_name.clone(), MapItem::File(new_inner.clone()));
-        return Some(new_inner);
       }
+      self.0.insert(publish_name.clone(), MapItem::File(new_inner.clone()));
+      return Some(new_inner);
+    }
     None
   }
 
   pub(crate) fn get_dir_child_path(&self, publish_name: &String, subpath: &String) -> Option<String> {
-    if let Some(map_item) = self.0.get(publish_name)
-      && let MapItem::Dir(path) = (*map_item).clone() {
-        let path = Path::new(&path);
-        let new_path = path.join(subpath);
-        if new_path.exists() {
-          return Some(new_path.to_string_lossy().to_string());
-        }
+    if let Some(map_item) = self.0.get(publish_name) &&
+      let MapItem::Dir(path) = (*map_item).clone()
+    {
+      let path = Path::new(&path);
+      let new_path = path.join(subpath);
+      if new_path.exists() {
+        return Some(new_path.to_string_lossy().to_string());
       }
+    }
     None
   }
 }

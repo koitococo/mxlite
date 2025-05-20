@@ -42,8 +42,8 @@ impl TaskHandler for Task {
 }
 
 pub(crate) async fn handle_event(ctx: Context) {
-  let result = Task::from(&ctx.request).handle().await;
-  match result {
+  let task_result = Task::from(&ctx.request).handle().await;
+  let responding_result = match task_result {
     Ok(payload) => ctx.respond(true, payload).await,
     Err(err) => {
       warn!("Failed to handle request: {err}");
@@ -56,7 +56,10 @@ pub(crate) async fn handle_event(ctx: Context) {
           }
           .into(),
         )
-        .await;
+        .await
     }
+  };
+  if responding_result.is_err() {
+    warn!("Failed to respond to request: {}", ctx.request.id);
   }
 }

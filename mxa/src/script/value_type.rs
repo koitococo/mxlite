@@ -202,10 +202,11 @@ impl ValueType {
   }
 
   fn try_table_val(&self, key: &str) -> Option<ValueType> {
-    if let ValueType::Table(t) = self
-      && let Some(v) = t.get(key) {
-        return Some(v.clone());
-      }
+    if let ValueType::Table(t) = self &&
+      let Some(v) = t.get(key)
+    {
+      return Some(v.clone());
+    }
     None
   }
 

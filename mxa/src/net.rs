@@ -13,7 +13,6 @@ use common::{
   },
   system_info::{self},
 };
-use std::str::FromStr;
 use tokio::{
   net::TcpStream,
   select,
@@ -39,8 +38,8 @@ pub(crate) struct Context {
 }
 
 impl Context {
-  pub(crate) async fn respond(self, ok: bool, payload: AgentResponsePayload) {
-    if let Err(e) = self
+  pub(crate) async fn respond(&self, ok: bool, payload: AgentResponsePayload) -> Result<()> {
+    self
       .tx
       .send(Message::Text(
         ProtocolMessage::AgentResponse(AgentResponse {
@@ -48,12 +47,13 @@ impl Context {
           ok,
           payload,
         })
-        .to_string(),
+        .try_into()?,
       ))
       .await
-    {
-      warn!("Failed to respond request[id={}]: {}", self.request.id, e);
-    }
+      .map_err(|e| {
+        warn!("Failed to respond request[id={}]: {}", self.request.id, e);
+        anyhow!("Failed to respond request[id={}]: {}", self.request.id, e)
+      })
   }
 }
 
@@ -229,7 +229,6 @@ async fn handle_ws_message(
 }
 
 async fn handle_msg(msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason> {
-  debug!("Received message: {msg:?}");
   match msg {
     Message::Text(msg) => {
       trace!("Received text message from controller");
@@ -258,7 +257,7 @@ async fn handle_msg(msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason
 }
 
 async fn handle_text_msg(msg: String, tx: Sender<Message>) -> Result<Option<BreakLoopReason>> {
-  match ProtocolMessage::from_str(msg.as_str()) {
+  match ProtocolMessage::try_from(msg.as_str()) {
     Ok(ProtocolMessage::ControllerRequest(request)) => {
       info!("Received event: {request:?}");
       let ctx = Context { request, tx };
@@ -274,7 +273,7 @@ async fn handle_text_msg(msg: String, tx: Sender<Message>) -> Result<Option<Brea
             ok: false,
             payload: AgentResponsePayload::None,
           })
-          .to_string(),
+          .try_into()?,
         ))
         .await
       {

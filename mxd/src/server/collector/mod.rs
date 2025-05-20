@@ -1,4 +1,4 @@
-use common::protocol::messaging::{Message, AgentResponse};
+use common::protocol::messaging::{AgentResponse, Message};
 use log::{debug, info};
 use std::sync::Arc;
 

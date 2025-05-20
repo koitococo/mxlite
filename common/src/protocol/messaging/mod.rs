@@ -1,7 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+mod requsting;
+pub use requsting::*;
 
-pub const PROTOCOL_VERSION: u32 = 3;
+use serde::{Deserialize, Serialize};
+
 // pub const CLOSE_CODE : u16 = 1000;
 // pub const CLOSE_MXA_SHUTDOWN: &str = "MXA_SHUTDOWN";
 
@@ -12,16 +13,14 @@ pub enum Message {
   AgentResponse(AgentResponse),
 }
 
-impl FromStr for Message {
-  type Err = serde_json::Error;
+impl TryFrom<&str> for Message {
+  type Error = serde_json::Error;
 
-  fn from_str(s: &str) -> Result<Self, Self::Err> { serde_json::from_str(s) }
+  fn try_from(s: &str) -> Result<Self, Self::Error> { serde_json::from_str(s) }
 }
 
-#[allow(clippy::to_string_trait_impl)]
-impl ToString for Message {
-  fn to_string(&self) -> String { serde_json::to_string(self).unwrap() }
-}
+impl TryFrom<Message> for String {
+  type Error = serde_json::Error;
 
-mod requests;
-pub use requests::*;
+  fn try_from(value: Message) -> Result<Self, Self::Error> { serde_json::to_string(&value) }
+}

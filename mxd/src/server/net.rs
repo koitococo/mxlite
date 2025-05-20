@@ -15,8 +15,8 @@ use axum::{
   response::{IntoResponse, Response},
 };
 use common::protocol::{
-  messaging::Message as ProtocolMessage,
   handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+  messaging::Message as ProtocolMessage,
 };
 use futures_util::SinkExt;
 use log::{debug, error, info, warn};
@@ -105,7 +105,7 @@ async fn handle_socket(
         req = session.recv_req() => {
             if let Some(req) = req {
                 debug!("Sending request: {req:?}");
-                ws.send(ProtocolMessage::ControllerRequest(req).to_string().into()).await?;
+                ws.send(String::try_from(ProtocolMessage::ControllerRequest(req))?.into()).await?;
             } else {
                 info!("Internal channel closed for id: {}", params.host_id);
                 break;
@@ -147,7 +147,7 @@ async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result
     match msg {
       Message::Text(data) => {
         let data = data.to_string();
-        let msg = ProtocolMessage::from_str(&data)?;
+        let msg = ProtocolMessage::try_from(data.as_str())?;
         tokio::spawn(super::collector::handle_msg(msg, session));
         Ok(true)
       }

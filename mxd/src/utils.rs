@@ -80,9 +80,7 @@ pub(crate) fn get_cert_from_file(
   cert_path: Option<String>, key_path: Option<String>, ca_cert_path: Option<String>, ca_key_path: Option<String>,
   allow_self_signed: bool,
 ) -> Result<(String, String)> {
-  if cert_path.is_some() && key_path.is_some() {
-    let cert_path = cert_path.as_ref().unwrap();
-    let key_path = key_path.as_ref().unwrap();
+  if let (Some(cert_path), Some(key_path)) = (&cert_path, &key_path) {
     let cert_existed = exists(cert_path)?;
     let key_existed = exists(key_path)?;
     if cert_existed ^ key_existed {
@@ -96,9 +94,7 @@ pub(crate) fn get_cert_from_file(
       let key = std::fs::read_to_string(key_path)?;
       Ok((cert, key))
     } else if allow_self_signed {
-      let (ca_cert, ca_key) = if ca_cert_path.is_some() && ca_key_path.is_some() {
-        let ca_cert_path = ca_cert_path.as_ref().unwrap();
-        let ca_key_path = ca_key_path.as_ref().unwrap();
+      let (ca_cert, ca_key) = if let (Some(ca_cert_path), Some(ca_key_path)) = (&ca_cert_path, &ca_key_path) {
         let ca_cert_existed = exists(ca_cert_path)?;
         let ca_key_existed = exists(ca_key_path)?;
         if ca_cert_existed ^ ca_key_existed {

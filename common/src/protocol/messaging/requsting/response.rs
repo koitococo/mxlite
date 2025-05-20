@@ -36,24 +36,16 @@ pub enum AgentResponsePayload {
 }
 
 impl From<CommandExecutionResponse> for AgentResponsePayload {
-  fn from(value: CommandExecutionResponse) -> Self {
-    AgentResponsePayload::CommandExecutionResponse(value)
-  }
+  fn from(value: CommandExecutionResponse) -> Self { AgentResponsePayload::CommandExecutionResponse(value) }
 }
 impl From<FileOperationResponse> for AgentResponsePayload {
-  fn from(value: FileOperationResponse) -> Self {
-    AgentResponsePayload::FileOperationResponse(value)
-  }
+  fn from(value: FileOperationResponse) -> Self { AgentResponsePayload::FileOperationResponse(value) }
 }
 impl From<ScriptEvalResponse> for AgentResponsePayload {
-  fn from(value: ScriptEvalResponse) -> Self {
-    AgentResponsePayload::ScriptEvalResponse(value)
-  }
+  fn from(value: ScriptEvalResponse) -> Self { AgentResponsePayload::ScriptEvalResponse(value) }
 }
 impl From<ErrorResponse> for AgentResponsePayload {
-  fn from(value: ErrorResponse) -> Self {
-    AgentResponsePayload::Error(value)
-  }
+  fn from(value: ErrorResponse) -> Self { AgentResponsePayload::Error(value) }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
