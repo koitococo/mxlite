@@ -4,117 +4,131 @@ use crate::utils::{download_file, upload_file};
 use anyhow::Result;
 use common::{
   hash::xxh3_for_file,
-  protocol::messaging::{AgentResponsePayload, FileOperation, FileOperationResponse, FileTransferRequest},
+  protocol::messaging::{
+    AgentResponsePayload, FileDownloadParams, FileDownloadResult, FileOperationResponse, FileReadParams,
+    FileReadResult, FileTransferRequest, FileUploadParams, FileUploadResult, FileWriteParams, FileWriteResult,
+  },
 };
 use log::warn;
 
 use super::TaskHandler;
 
-pub(super) struct FileTaskParams {
-  url: String,
-  path: String,
+trait FileOperationHandler {
+  async fn handle(self) -> FileOperationResponse;
 }
 
-impl FileTaskParams {
-  async fn handle_download(self) -> FileOperationResponse {
-    match download_file(&self.url, &self.path).await {
-      Ok(hash) => FileOperationResponse {
-        success: true,
+impl FileOperationHandler for FileDownloadParams {
+  async fn handle(self) -> FileOperationResponse {
+    match download_file(&self.src_url, &self.dest_path).await {
+      Ok(hash) => FileDownloadResult {
+        ok: true,
         hash: Some(hash),
-      },
+      }
+      .into(),
       Err(err) => {
         warn!(
           "Failed to download file from '{}' to '{}': {}",
-          self.url, self.path, err
+          self.src_url, self.dest_path, err
         );
-        FileOperationResponse {
-          success: false,
-          hash: None,
-        }
+        FileDownloadResult { ok: false, hash: None }.into()
       }
     }
   }
+}
 
-  async fn handle_upload(self) -> FileOperationResponse {
-    match upload_file(&self.url, &self.path).await {
-      Ok(_) => FileOperationResponse {
-        success: true,
-        hash: xxh3_for_file(&self.path)
+impl FileOperationHandler for FileUploadParams {
+  async fn handle(self) -> FileOperationResponse {
+    match upload_file(&self.src_path, &self.dest_url).await {
+      Ok(_) => FileUploadResult {
+        ok: true,
+        hash: xxh3_for_file(&self.src_path)
           .await
           .inspect_err(|err| {
-            warn!("Failed to calculate hash for file '{}': {}", self.path, err);
+            warn!("Failed to calculate hash for file '{}': {}", self.src_path, err);
           })
           .ok(),
-      },
+      }
+      .into(),
       Err(err) => {
-        warn!("Failed to upload file from '{}' to '{}': {}", self.path, self.url, err);
-        FileOperationResponse {
-          success: false,
-          hash: None,
-        }
+        warn!(
+          "Failed to upload file from '{}' to '{}': {}",
+          self.src_path, self.dest_url, err
+        );
+        FileUploadResult { ok: false, hash: None }.into()
       }
     }
   }
+}
 
-  async fn handle_read(self) -> FileOperationResponse { todo!() }
+impl FileOperationHandler for FileReadParams {
+  async fn handle(self) -> FileOperationResponse {
+    match std::fs::read(&self.src_path) {
+      Ok(content) => {
+        if let Some(size_limit) = self.size_limit &&
+          content.len() > size_limit as usize
+        {
+          warn!("File '{}' exceeds size limit of {} bytes", self.src_path, size_limit);
+          return FileReadResult {
+            ok: false,
+            size: content.len() as u64,
+            content: None,
+          }
+          .into();
+        }
+        let content_str = String::from_utf8_lossy(&content).to_string();
+        FileReadResult {
+          ok: true,
+          size: content.len() as u64,
+          content: Some(content_str),
+        }
+        .into()
+      }
+      Err(err) => {
+        warn!("Failed to read file '{}': {}", self.src_path, err);
+        FileReadResult {
+          ok: false,
+          size: 0,
+          content: None,
+        }
+        .into()
+      }
+    }
+  }
+}
 
-  async fn handle_write(self) -> FileOperationResponse {
-    let f = OpenOptions::new().write(true).create(true).truncate(true).open(&self.path);
+impl FileOperationHandler for FileWriteParams {
+  async fn handle(self) -> FileOperationResponse {
+    let f = OpenOptions::new().write(true).create(true).truncate(true).open(&self.dest_path);
     match f {
       Ok(mut file) => {
-        if let Err(err) = file.write_all(self.url.as_bytes()) {
-          warn!("Failed to write to file '{}': {}", self.path, err);
-          return FileOperationResponse {
-            success: false,
-            hash: None,
-          };
+        if let Err(err) = file.write_all(self.content.as_bytes()) {
+          warn!("Failed to write to file '{}': {}", self.dest_path, err);
+          return FileWriteResult { ok: false }.into();
         }
-        FileOperationResponse {
-          success: true,
-          hash: None,
-        }
+        FileWriteResult { ok: true }.into()
       }
       Err(err) => {
-        warn!("Failed to open file '{}': {}", self.path, err);
-        FileOperationResponse {
-          success: false,
-          hash: None,
-        }
+        warn!("Failed to open file '{}': {}", self.dest_path, err);
+        FileWriteResult { ok: false }.into()
       }
     }
   }
 }
 
-pub(super) enum FileTask {
-  Download(FileTaskParams),
-  Upload(FileTaskParams),
-  Read(FileTaskParams),
-  Write(FileTaskParams),
-}
-
-impl TaskHandler for FileTask {
-  async fn handle(self) -> Result<AgentResponsePayload> {
-    let result = match self {
-      FileTask::Download(task) => task.handle_download().await,
-      FileTask::Upload(task) => task.handle_upload().await,
-      FileTask::Read(task) => task.handle_read().await,
-      FileTask::Write(task) => task.handle_write().await,
-    };
-    Ok(result.into())
+impl FileOperationHandler for FileTransferRequest {
+  async fn handle(self) -> FileOperationResponse {
+    match self {
+      FileTransferRequest::Download(params) => params.handle().await,
+      FileTransferRequest::Upload(params) => params.handle().await,
+      FileTransferRequest::Read(params) => params.handle().await,
+      FileTransferRequest::Write(params) => params.handle().await,
+    }
   }
 }
-impl From<&FileTransferRequest> for FileTask {
-  fn from(value: &FileTransferRequest) -> Self {
-    let params = FileTaskParams {
-      url: value.url.clone(),
-      path: value.path.clone(),
-    };
 
-    match value.operation {
-      FileOperation::Download => FileTask::Download(params),
-      FileOperation::Upload => FileTask::Upload(params),
-      FileOperation::Read => FileTask::Read(params),
-      FileOperation::Write => FileTask::Write(params),
-    }
+impl TaskHandler for FileTransferRequest {
+  async fn handle(self) -> Result<AgentResponsePayload> {
+    let response = FileOperationHandler::handle(self).await;
+    Ok(AgentResponsePayload::FileOperationResponse(response))
   }
 }

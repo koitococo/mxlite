@@ -9,44 +9,86 @@ pub struct CommandExecutionRequest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type")]
-pub enum FileOperation {
-  Download,
-  Upload,
-  Read,
-  Write,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct FileTransferRequest {
-  pub url: String,
-  pub path: String,
-  pub operation: FileOperation,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScriptEvalRequest {
   pub script: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FileUploadParams {
+  pub src_path: String,
+  pub dest_url: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FileDownloadParams {
+  pub src_url: String,
+  pub dest_path: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FileReadParams {
+  pub src_path: String,
+  pub size_limit: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FileWriteParams {
+  pub content: String,
+  pub dest_path: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "type")]
+pub enum FileTransferRequest {
+  Download(FileDownloadParams),
+  Upload(FileUploadParams),
+  Read(FileReadParams),
+  Write(FileWriteParams),
+}
+
+impl From<FileDownloadParams> for FileTransferRequest {
+  fn from(value: FileDownloadParams) -> Self { FileTransferRequest::Download(value) }
+}
+impl From<FileUploadParams> for FileTransferRequest {
+  fn from(value: FileUploadParams) -> Self { FileTransferRequest::Upload(value) }
+}
+impl From<FileReadParams> for FileTransferRequest {
+  fn from(value: FileReadParams) -> Self { FileTransferRequest::Read(value) }
+}
+impl From<FileWriteParams> for FileTransferRequest {
+  fn from(value: FileWriteParams) -> Self { FileTransferRequest::Write(value) }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum ControllerRequestPayload {
-  // None,
   CommandExecutionRequest(CommandExecutionRequest),
-  FileTransferRequest(FileTransferRequest),
   ScriptEvalRequest(ScriptEvalRequest),
+  FileTransferRequest(FileTransferRequest),
 }
 
 impl From<CommandExecutionRequest> for ControllerRequestPayload {
   fn from(value: CommandExecutionRequest) -> Self { ControllerRequestPayload::CommandExecutionRequest(value) }
 }
-impl From<FileTransferRequest> for ControllerRequestPayload {
-  fn from(value: FileTransferRequest) -> Self { ControllerRequestPayload::FileTransferRequest(value) }
-}
 impl From<ScriptEvalRequest> for ControllerRequestPayload {
   fn from(value: ScriptEvalRequest) -> Self { ControllerRequestPayload::ScriptEvalRequest(value) }
 }
+impl From<FileTransferRequest> for ControllerRequestPayload {
+  fn from(value: FileTransferRequest) -> Self { ControllerRequestPayload::FileTransferRequest(value) }
+}
+impl From<FileUploadParams> for ControllerRequestPayload {
+  fn from(value: FileUploadParams) -> Self { ControllerRequestPayload::FileTransferRequest(value.into()) }
+}
+impl From<FileDownloadParams> for ControllerRequestPayload {
+  fn from(value: FileDownloadParams) -> Self { ControllerRequestPayload::FileTransferRequest(value.into()) }
+}
+impl From<FileReadParams> for ControllerRequestPayload {
+  fn from(value: FileReadParams) -> Self { ControllerRequestPayload::FileTransferRequest(value.into()) }
+}
+impl From<FileWriteParams> for ControllerRequestPayload {
+  fn from(value: FileWriteParams) -> Self { ControllerRequestPayload::FileTransferRequest(value.into()) }
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ControllerRequest {

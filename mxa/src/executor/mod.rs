@@ -4,19 +4,18 @@ mod script_task;
 
 use anyhow::Result;
 use cmd_task::ExecutionTask;
-use file_task::FileTask;
 use log::warn;
 use script_task::ScriptTask;
 
 use crate::net::Context;
-use common::protocol::messaging::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse};
+use common::protocol::messaging::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse, FileTransferRequest};
 
 trait TaskHandler {
   fn handle(self) -> impl Future<Output = Result<AgentResponsePayload>>;
 }
 
 enum Task {
-  File(FileTask),
+  File(FileTransferRequest),
   Cmd(ExecutionTask),
   Script(ScriptTask),
 }
@@ -24,7 +23,7 @@ enum Task {
 impl From<&ControllerRequest> for Task {
   fn from(msg: &ControllerRequest) -> Self {
     match &msg.payload {
-      ControllerRequestPayload::FileTransferRequest(req) => Task::File(FileTask::from(req)),
+      ControllerRequestPayload::FileTransferRequest(req) => Task::File(req.clone()),
       ControllerRequestPayload::CommandExecutionRequest(req) => Task::Cmd(ExecutionTask::from(req)),
       ControllerRequestPayload::ScriptEvalRequest(req) => Task::Script(ScriptTask::from(req)),
     }
