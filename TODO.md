@@ -4,7 +4,7 @@
 - [ ] Implement agent event protocol
   - [ ] Support event subscription for clients in controller api (SSE)
 - [ ] Implement reverse proxy in controller
-- [ ] Implement steaming protocol
+- [ ] Implement streaming protocol
   - [ ] Implementation for agent
   - [ ] Implementation for controller
   - [ ] Support stdio redirection
@@ -15,10 +15,4 @@
   - [ ] Network Interface Card
     - [ ] Link state
     - [ ] Link speed
-  - [ ] Block device
-    - [ ] Partition information
-    - [ ] Mountpoint information (to replace sysinfo crate)
 - [ ] Support realtime command output feedback
-- [x] Add utils apis
-  - [x] URL Subsitioin for file serving
-  - [x] File System Browsing

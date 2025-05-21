@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::states::host_session::HostSession;
 
 pub(super) async fn handle_msg(msg: AgentMessage, session: Arc<HostSession>) {
-  debug!("Received message: {:?}", msg);
+  debug!("Received message: {msg:?}");
   if let Some(response) = msg.response {
     handle_resp(response, session.clone()).await;
   }

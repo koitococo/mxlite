@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use log::{LevelFilter, info, warn};
+use log::{info, warn};
 use utils::get_cert_from_file;
 
 mod discovery;
@@ -8,7 +8,10 @@ mod server;
 mod states;
 mod utils;
 
-#[derive(Parser)]
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH"));
+
+#[derive(Parser, Debug)]
+#[command(version = VERSION)]
 struct Cli {
   /// HTTP port to listen on
   #[clap(short = 'p', long, env = "MXD_PORT", default_value = "8080")]
@@ -137,17 +140,7 @@ impl TryFrom<Cli> for StartupArgs {
 async fn main() -> Result<()> {
   let config = Cli::parse();
 
-  simple_logger::SimpleLogger::new()
-    .with_level(if cfg!(debug_assertions) {
-      LevelFilter::Trace
-    } else if config.verbose {
-      LevelFilter::Debug
-    } else {
-      LevelFilter::Info
-    })
-    .with_local_timestamps()
-    .env()
-    .init()?;
+  common::logger::install_logger(config.verbose);
 
   let args = StartupArgs::try_from(config)?;
   info!("MetalX Controller - Launching");
@@ -162,14 +155,14 @@ async fn main() -> Result<()> {
         warn!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
         warn!("Discovered {} controllers", controllers.len());
         for controller in controllers {
-          warn!("Controller: {}", controller);
+          warn!("Controller: {controller}");
         }
         warn!("Please check if you are running multiple controllers on the same network");
         warn!("This may cause conflicts and unexpected behavior");
         warn!("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
       }
       Err(err) => {
-        log::error!("Failed to discover other controllers: {}", err);
+        log::error!("Failed to discover other controllers: {err}");
       }
     }
   }
@@ -180,7 +173,7 @@ async fn main() -> Result<()> {
     info!("HTTP server is disabled");
     return Ok(());
   } else if let Err(e) = server::main(args).await {
-    log::error!("Failed to start server: {}", e);
+    log::error!("Failed to start server: {e}");
   }
 
   if let Some((join, cancel)) = discovery_ {

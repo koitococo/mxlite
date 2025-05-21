@@ -73,7 +73,7 @@ async fn discover_controller() -> Vec<String> {
     match discover_controller_once().await {
       Ok(r) => return r,
       Err(e) => {
-        error!("Failed to discover controller: {}", e);
+        error!("Failed to discover controller: {e}");
         if safe_sleep(5000).await {
           return vec![];
         }
@@ -130,7 +130,7 @@ pub(crate) async fn handle_ws_url(
           retry = 0;
           match handle_conn(ws).await {
             Err(e) => {
-              error!("Failed to handle connection: {}", e);
+              error!("Failed to handle connection: {e}");
               continue;
             }
             Ok(exit) => match exit {
@@ -151,7 +151,7 @@ pub(crate) async fn handle_ws_url(
           break;
         }
         Err(err) => {
-          error!("Failed to connect to controller: {}", err);
+          error!("Failed to connect to controller: {err}");
           if safe_sleep(((1.5f32).powi(retry) * 3000f32 + 5000f32) as u64).await {
             return Ok(true);
           }
@@ -177,44 +177,40 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<B
       _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
         trace!("Sending ping to controller");
         if let Err(e) = tx.send(Message::Ping("ping".into())).await {
-          error!("Failed to send ping: {}", e);
+          error!("Failed to send ping: {e}");
           break Ok(BreakLoopReason::LostConnection);
         }
       }
       msg = rx.next() => {
-        match handle_ws_event(msg, tx_tx.clone()).await {
-          Ok(c) => {
-            match c {
-              BreakLoopReason::LostConnection => {
-                error!("Lost connection to controller");
-                break Ok(BreakLoopReason::LostConnection);
-              }
-              _ => ()
-            }
+        match handle_ws_message(msg, tx_tx.clone()).await {
+          Ok(BreakLoopReason::LostConnection) => {
+            error!("Lost connection to controller");
+            break Ok(BreakLoopReason::LostConnection);
           }
+          Ok(_) => { continue }
           Err(e) => {
-              error!("Failed to handle WebSocket event: {}", e);
+              error!("Failed to handle WebSocket event: {e}");
               break Ok(BreakLoopReason::ErrorCaptured);
           }
         }
       }
       msg = tx_rx.recv() => {
         if let Some(msg) = msg {
-            debug!("Sending message to controller: {:?}", msg);
+            debug!("Sending message to controller: {msg:?}");
             if let Err(e) = tx.send(msg).await {
-                error!("Failed to send message to controller: {}", e);
+                error!("Failed to send message to controller: {e}");
                 break Ok(BreakLoopReason::ErrorCaptured);
             }
         } else {
-            info!("Internal channel closed");
-            break Ok(BreakLoopReason::Shutdown);
+          info!("Internal channel closed");
+          break Ok(BreakLoopReason::Shutdown);
         }
       }
     }
   }
 }
 
-async fn handle_ws_event(
+async fn handle_ws_message(
   event: Option<Result<Message, tokio_tungstenite::tungstenite::Error>>, tx: Sender<Message>,
 ) -> Result<BreakLoopReason> {
   if let Some(event) = event {
@@ -222,12 +218,12 @@ async fn handle_ws_event(
       Ok(ws_msg) => match handle_msg(ws_msg, tx).await {
         Ok(c) => Ok(c),
         Err(e) => {
-          error!("Failed to handle message: {}", e);
+          error!("Failed to handle message: {e}");
           Err(e)
         }
       },
       Err(err) => {
-        error!("Failed to receive message: {}", err);
+        error!("Failed to receive message: {err}");
         Err(anyhow!(err))
       }
     }
@@ -236,43 +232,13 @@ async fn handle_ws_event(
   }
 }
 
-async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason> {
-  debug!("Received message: {:?}", ws_msg);
-  match ws_msg {
+async fn handle_msg(msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason> {
+  debug!("Received message: {msg:?}");
+  match msg {
     Message::Text(msg) => {
       trace!("Received text message from controller");
-      match ControllerMessage::from_str(msg.as_str()) {
-        Ok(event_msg) => {
-          info!("Received event: {:?}", event_msg);
-          let ctx = Context {
-            request: event_msg.request,
-            tx,
-          };
-          tokio::spawn(async move {
-            if let Err(e) = handle_event(ctx).await {
-              error!("Failed to handle event: {}", e);
-            }
-          });
-        }
-        Err(err) => {
-          error!("Failed to parse message: {}", err);
-          if let Err(e) = tx
-            .send(Message::Text(
-              AgentMessage {
-                response: Some(AgentResponse {
-                  id: u64::MAX,
-                  ok: false,
-                  payload: AgentResponsePayload::None,
-                }),
-                events: None,
-              }
-              .to_string(),
-            ))
-            .await
-          {
-            error!("Failed to respond to malformed message: {}", e);
-          }
-        }
+      if let Some(reason) = handle_text_msg(msg, tx).await? {
+        return Ok(reason);
       }
     }
     Message::Binary(_) => {
@@ -284,7 +250,7 @@ async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<BreakLoopRea
     }
     Message::Pong(_) => trace!("Received Pong frame"),
     Message::Close(e) => {
-      warn!("Connection is closing: {:?}", e);
+      warn!("Connection is closing: {e:?}");
       // return Ok(e
       //     .map(|v| u16::from(v.code) == CLOSE_CODE && v.reason == CLOSE_MXA_SHUTDOWN)
       //     .unwrap_or(false));
@@ -293,4 +259,37 @@ async fn handle_msg(ws_msg: Message, tx: Sender<Message>) -> Result<BreakLoopRea
     Message::Frame(_) => warn!("Received a malformed message from controller, ignored",),
   }
   Ok(BreakLoopReason::Nonbreak)
+}
+
+async fn handle_text_msg(msg: String, tx: Sender<Message>) -> Result<Option<BreakLoopReason>> {
+  match ControllerMessage::from_str(msg.as_str()) {
+    Ok(event_msg) => {
+      info!("Received event: {event_msg:?}");
+      let ctx = Context {
+        request: event_msg.request,
+        tx,
+      };
+      tokio::spawn(async move { handle_event(ctx).await });
+    }
+    Err(err) => {
+      error!("Failed to parse message: {err}");
+      if let Err(e) = tx
+        .send(Message::Text(
+          AgentMessage {
+            response: Some(AgentResponse {
+              id: u64::MAX,
+              ok: false,
+              payload: AgentResponsePayload::None,
+            }),
+            events: None,
+          }
+          .to_string(),
+        ))
+        .await
+      {
+        error!("Failed to respond to malformed message: {e}");
+      }
+    }
+  }
+  Ok(None)
 }

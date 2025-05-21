@@ -54,7 +54,7 @@ pub(crate) fn generate_signed_cert(
 
   params.subject_alt_names = subject_alt_names
     .into_iter()
-    .filter_map(|name| Ia5String::try_from(name).map(|n| SanType::DnsName(n)).ok())
+    .filter_map(|name| Ia5String::try_from(name).map(SanType::DnsName).ok())
     .collect();
   params.is_ca = IsCa::NoCa;
   params.key_usages = vec![KeyUsagePurpose::DigitalSignature, KeyUsagePurpose::KeyEncipherment];

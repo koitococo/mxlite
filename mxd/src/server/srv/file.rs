@@ -66,9 +66,9 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
           .map(|v| http_range_header::parse_range_header(v).and_then(|v| v.validate(meta.len())));
         match range {
           Some(Ok(range)) => {
-            debug!("Range header: {:?}", range);
+            debug!("Range header: {range:?}");
             if range.len() > 1 {
-              warn!("Range header contains multiple ranges: {:?}", range);
+              warn!("Range header contains multiple ranges: {range:?}");
               return (StatusCode::IM_A_TEAPOT.into_response(), false); // FIXME: Not supported range
             }
             let start = *range[0].start();
@@ -86,7 +86,7 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
               Err(err) => (
                 (
                   StatusCode::INTERNAL_SERVER_ERROR,
-                  Json(format!("Failed to create response: {}", err)),
+                  Json(format!("Failed to create response: {err}")),
                 )
                   .into_response(),
                 false,
@@ -96,7 +96,7 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
           Some(Err(err)) => (
             (
               StatusCode::RANGE_NOT_SATISFIABLE,
-              Json(format!("Invalid range header: {}", err)),
+              Json(format!("Invalid range header: {err}")),
             )
               .into_response(),
             false,
@@ -108,7 +108,7 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
               Err(err) => (
                 (
                   StatusCode::INTERNAL_SERVER_ERROR,
-                  Json(format!("Failed to create response: {}", err)),
+                  Json(format!("Failed to create response: {err}")),
                 )
                   .into_response(),
                 false,
@@ -120,7 +120,7 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
       Err(err) => (
         (
           StatusCode::INTERNAL_SERVER_ERROR,
-          Json(format!("Failed to get file metadata: {}", err)),
+          Json(format!("Failed to get file metadata: {err}")),
         )
           .into_response(),
         false,
@@ -129,7 +129,7 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
     Err(err) => (
       (
         StatusCode::INTERNAL_SERVER_ERROR,
-        Json(format!("Failed to open file: {}", err)),
+        Json(format!("Failed to open file: {err}")),
       )
         .into_response(),
       false,
@@ -140,7 +140,7 @@ async fn gen_file_response(file_path: &str, req: Request) -> (Response, bool) {
 async fn get_file(
   State(app): State<SharedAppState>, Path(name): Path<String>, Query(params): Query<GetFileParams>, req: Request,
 ) -> Response {
-  debug!("get file: {}", name);
+  debug!("get file: {name}");
   if let Some(map) = app
     .file_map
     .get_file_with_optional_props(
@@ -167,7 +167,7 @@ async fn get_file(
 async fn head_file(
   State(app): State<SharedAppState>, Path(name): Path<String>, Query(params): Query<GetFileParams>,
 ) -> Response {
-  debug!("head file: {}", name);
+  debug!("head file: {name}");
   let map = app
     .file_map
     .get_file_with_optional_props(
@@ -230,7 +230,7 @@ fn is_sanitized_path(path: &str) -> bool {
 async fn get_dir_child(
   State(app): State<SharedAppState>, Path((dir, path)): Path<(String, String)>, req: Request,
 ) -> Response {
-  debug!("get dir child: {} {}", dir, path);
+  debug!("get dir child: {dir} {path}");
   if !is_sanitized_path(&path) {
     return StatusCode::FORBIDDEN.into_response();
   }
@@ -243,7 +243,7 @@ async fn get_dir_child(
 }
 
 async fn head_dir_child(State(app): State<SharedAppState>, Path((dir, path)): Path<(String, String)>) -> Response {
-  debug!("get dir child: {} {}", dir, path);
+  debug!("get dir child: {dir} {path}");
   if !is_sanitized_path(&path) {
     return StatusCode::FORBIDDEN.into_response();
   }
