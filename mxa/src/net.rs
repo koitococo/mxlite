@@ -1,9 +1,10 @@
 use common::{
   discovery::discover_controller_once,
   protocol::{
-    handshake::{ConnectHandshake, CONNECT_HANDSHAKE_HEADER_KEY},
+    handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
     messaging::{
-      AgentResponse, AgentResponsePayload, ControllerRequest, ErrorResponse, Message as ProtocolMessage, PROTOCOL_VERSION
+      AgentResponse, AgentResponsePayload, ControllerRequest, ErrorResponse, Message as ProtocolMessage,
+      PROTOCOL_VERSION, Status,
     },
   },
   system_info::{self},
@@ -39,7 +40,7 @@ impl Context {
       .send(Message::Text(
         ProtocolMessage::AgentResponse(AgentResponse {
           id: self.request.id,
-          ok,
+          status: if ok { Status::Ok } else { Status::Error },
           payload,
         })
         .try_into()?,
@@ -265,11 +266,12 @@ async fn handle_text_msg(msg: String, tx: Sender<Message>) -> Result<Option<Brea
         .send(Message::Text(
           ProtocolMessage::AgentResponse(AgentResponse {
             id: u64::MAX,
-            ok: false,
+            status: Status::NotAccepted,
             payload: ErrorResponse {
               code: "ERR_PARSE".to_string(),
               message: err.to_string(),
-            }.into(),
+            }
+            .into(),
           })
           .try_into()?,
         ))

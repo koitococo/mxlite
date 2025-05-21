@@ -88,9 +88,21 @@ impl From<ErrorResponse> for AgentResponsePayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum Status {
+  Ok, // Task finished without segmentation
+  Error, // Task failed without segmentation
+  PartialOk(u32), // Task returned a partial result
+  PartialFail(u32), // Task threw an ignorable error
+  Finished(u32), // Task finished without error
+  FinishedWithError(u32), // Task finished with ignorable error
+  FailFast(u32), // Task threw an error
+  NotAccepted, // Task was not accepted by executor
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AgentResponse {
   pub id: u64,
-  pub ok: bool,
+  pub status: Status,
   pub payload: AgentResponsePayload,
 }
 
@@ -98,7 +110,7 @@ pub struct AgentResponse {
 fn test_agent_response_serialization() {
   let response = AgentResponse {
     id: 1,
-    ok: true,
+    status: Status::Finished(0),
     payload: AgentResponsePayload::FileOperationResponse(FileOperationResponse::Download(FileDownloadResult {
       ok: true,
       hash: Some("dummy_hash".to_string()),
