@@ -10,10 +10,8 @@ mod net;
 pub mod script;
 mod utils;
 
-const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH"));
-
 #[derive(Parser, Debug)]
-#[command(version = VERSION)]
+#[command(version = common::VERSION)]
 struct Cli {
   /// Connect to controller with Websocket URL. This option will disable discovery.
   #[clap(short, long, env = "MXA_WS_URL")]
