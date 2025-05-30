@@ -2,60 +2,33 @@ mod cmd_task;
 mod file_task;
 mod script_task;
 
-use anyhow::Result;
-use cmd_task::ExecutionTask;
 use log::warn;
-use script_task::ScriptTask;
 
 use crate::net::Context;
-use common::protocol::messaging::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse, FileTransferRequest};
+use common::protocol::messaging::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse};
 
-trait TaskHandler {
-  fn handle(self) -> impl Future<Output = Result<AgentResponsePayload>>;
+trait RequestHandler<T> {
+  async fn handle(&self) -> Result<T, ErrorResponse>;
 }
 
-enum Task {
-  File(FileTransferRequest),
-  Cmd(ExecutionTask),
-  Script(ScriptTask),
-}
-
-impl From<&ControllerRequest> for Task {
-  fn from(msg: &ControllerRequest) -> Self {
-    match &msg.payload {
-      ControllerRequestPayload::FileTransferRequest(req) => Task::File(req.clone()),
-      ControllerRequestPayload::CommandExecutionRequest(req) => Task::Cmd(ExecutionTask::from(req)),
-      ControllerRequestPayload::ScriptEvalRequest(req) => Task::Script(ScriptTask::from(req)),
-    }
-  }
-}
-
-impl TaskHandler for Task {
-  async fn handle(self) -> Result<AgentResponsePayload> {
-    match self {
-      Task::File(task) => task.handle().await,
-      Task::Cmd(task) => task.handle().await,
-      Task::Script(task) => task.handle().await,
-    }
+impl RequestHandler<AgentResponsePayload> for ControllerRequest {
+  async fn handle(&self) -> Result<AgentResponsePayload, ErrorResponse> {
+    let r = match &self.payload {
+      ControllerRequestPayload::CommandExecutionRequest(req) => req.handle().await?.into(),
+      ControllerRequestPayload::ScriptEvalRequest(req) => req.handle().await?.into(),
+      ControllerRequestPayload::FileTransferRequest(req) => req.handle().await?.into(),
+    };
+    Ok(r)
   }
 }
 
 pub(crate) async fn handle_event(ctx: Context) {
-  let task_result = Task::from(&ctx.request).handle().await;
+  let task_result = ctx.request.handle().await;
   let responding_result = match task_result {
     Ok(payload) => ctx.respond(true, payload).await,
     Err(err) => {
-      warn!("Failed to handle request: {err}");
-      ctx
-        .respond(
-          false,
-          ErrorResponse {
-            code: "ERR_GENERIC".to_string(),
-            message: err.to_string(),
-          }
-          .into(),
-        )
-        .await
+      warn!("Failed to handle request: {}", err.message);
+      ctx.respond(false, err.into()).await
     }
   };
   if responding_result.is_err() {
