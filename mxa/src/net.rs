@@ -25,11 +25,12 @@ use tokio_tungstenite::{
 
 use crate::{executor::handle_event, utils::safe_sleep};
 
+pub(crate) type MessageSender = Sender<Message>;
 pub(crate) trait MessageSend<T> {
   fn send_msg(&self, msg: T) -> bool;
 }
 
-impl MessageSend<Message> for Sender<Message> {
+impl MessageSend<Message> for MessageSender {
   fn send_msg(&self, msg: Message) -> bool {
     if let Err(e) = self.try_send(msg) {
       error!("Failed to send message: {e}");
@@ -40,11 +41,11 @@ impl MessageSend<Message> for Sender<Message> {
   }
 }
 
-impl MessageSend<String> for Sender<Message> {
+impl MessageSend<String> for MessageSender {
   fn send_msg(&self, msg: String) -> bool { self.send_msg(Message::Text(msg)) }
 }
 
-impl MessageSend<ProtocolMessage> for Sender<Message> {
+impl MessageSend<ProtocolMessage> for MessageSender {
   fn send_msg(&self, msg: ProtocolMessage) -> bool {
     let Ok(msg): Result<String, _> = msg.try_into() else {
       error!("Failed to convert ProtocolMessage to Message");
@@ -54,7 +55,7 @@ impl MessageSend<ProtocolMessage> for Sender<Message> {
   }
 }
 
-impl MessageSend<AgentResponse> for Sender<Message> {
+impl MessageSend<AgentResponse> for MessageSender {
   fn send_msg(&self, msg: AgentResponse) -> bool {
     let msg: ProtocolMessage = msg.into();
     self.send_msg(msg)

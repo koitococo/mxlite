@@ -3,14 +3,12 @@ mod file_task;
 mod script_task;
 
 use log::warn;
-use tokio::sync::mpsc::Sender;
-use tokio_tungstenite::tungstenite::Message;
 
 use common::protocol::messaging::{
   AgentResponse, AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse, Status,
 };
 
-use crate::net::MessageSend as _;
+use crate::net::{MessageSend as _, MessageSender};
 
 trait RequestHandler<T> {
   async fn handle(&self) -> Result<T, ErrorResponse>;
@@ -27,7 +25,7 @@ impl RequestHandler<AgentResponsePayload> for ControllerRequest {
   }
 }
 
-pub(crate) async fn handle_event(request: ControllerRequest, tx: Sender<Message>) {
+pub(crate) async fn handle_event(request: ControllerRequest, tx: MessageSender) {
   match request.handle().await {
     Ok(payload) => tx.send_msg(AgentResponse {
       id: request.id,
@@ -35,7 +33,7 @@ pub(crate) async fn handle_event(request: ControllerRequest, tx: Sender<Message>
       payload,
     }),
     Err(err) => {
-      warn!("Failed to handle request: {}", err.message);
+      warn!("Failed to handle request: {err:?}");
       tx.send_msg(AgentResponse {
         id: request.id,
         status: Status::Error,
