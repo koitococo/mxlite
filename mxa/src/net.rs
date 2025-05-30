@@ -2,10 +2,7 @@ use common::{
   discovery::discover_controller_once,
   protocol::{
     handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
-    messaging::{
-      AgentResponse, AgentResponsePayload, ControllerRequest, ErrorResponse, Message as ProtocolMessage,
-      PROTOCOL_VERSION, Status,
-    },
+    messaging::{AgentResponse, Message as ProtocolMessage, PROTOCOL_VERSION},
   },
   system_info::{self},
 };
@@ -28,28 +25,39 @@ use tokio_tungstenite::{
 
 use crate::{executor::handle_event, utils::safe_sleep};
 
-pub(crate) struct Context {
-  pub(crate) request: ControllerRequest,
-  tx: Sender<Message>,
+pub(crate) trait MessageSend<T> {
+  fn send_msg(&self, msg: T) -> bool;
 }
 
-impl Context {
-  pub(crate) async fn respond(&self, ok: bool, payload: AgentResponsePayload) -> Result<()> {
-    self
-      .tx
-      .send(Message::Text(
-        ProtocolMessage::AgentResponse(AgentResponse {
-          id: self.request.id,
-          status: if ok { Status::Ok } else { Status::Error },
-          payload,
-        })
-        .try_into()?,
-      ))
-      .await
-      .map_err(|e| {
-        warn!("Failed to respond request[id={}]: {}", self.request.id, e);
-        anyhow!("Failed to respond request[id={}]: {}", self.request.id, e)
-      })
+impl MessageSend<Message> for Sender<Message> {
+  fn send_msg(&self, msg: Message) -> bool {
+    if let Err(e) = self.try_send(msg) {
+      error!("Failed to send message: {e}");
+      false
+    } else {
+      true
+    }
+  }
+}
+
+impl MessageSend<String> for Sender<Message> {
+  fn send_msg(&self, msg: String) -> bool { self.send_msg(Message::Text(msg)) }
+}
+
+impl MessageSend<ProtocolMessage> for Sender<Message> {
+  fn send_msg(&self, msg: ProtocolMessage) -> bool {
+    let Ok(msg): Result<String, _> = msg.try_into() else {
+      error!("Failed to convert ProtocolMessage to Message");
+      return false;
+    };
+    self.send_msg(msg)
+  }
+}
+
+impl MessageSend<AgentResponse> for Sender<Message> {
+  fn send_msg(&self, msg: AgentResponse) -> bool {
+    let msg: ProtocolMessage = msg.into();
+    self.send_msg(msg)
   }
 }
 
@@ -228,12 +236,10 @@ async fn handle_msg(msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason
   match msg {
     Message::Text(msg) => {
       trace!("Received text message from controller");
-      if let Some(reason) = handle_text_msg(msg, tx).await? {
-        return Ok(reason);
-      }
+      handle_text_msg(msg, tx);
     }
     Message::Binary(_) => {
-      warn!("Received binary message from controller, which is not supported")
+      warn!("Received binary message from controller, which is not supported");
     }
     Message::Ping(f) => {
       trace!("Received Ping frame");
@@ -252,34 +258,20 @@ async fn handle_msg(msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason
   Ok(BreakLoopReason::Nonbreak)
 }
 
-async fn handle_text_msg(msg: String, tx: Sender<Message>) -> Result<Option<BreakLoopReason>> {
+fn handle_text_msg(msg: String, tx: Sender<Message>) {
   match ProtocolMessage::try_from(msg.as_str()) {
     Ok(ProtocolMessage::ControllerRequest(request)) => {
       info!("Received event: {request:?}");
-      let ctx = Context { request, tx };
-      tokio::spawn(async move { handle_event(ctx).await });
+      tokio::spawn(async move { handle_event(request, tx).await });
     }
-    Ok(_) => {}
+    Ok(_) => {
+      warn!("Received unsupported message type, ignoring: {msg}");
+      tx.send_msg(ProtocolMessage::None);
+    }
     Err(err) => {
-      error!("Failed to parse message: {err}");
-      if let Err(e) = tx
-        .send(Message::Text(
-          ProtocolMessage::AgentResponse(AgentResponse {
-            id: u64::MAX,
-            status: Status::NotAccepted,
-            payload: ErrorResponse {
-              code: "ERR_PARSE".to_string(),
-              message: err.to_string(),
-            }
-            .into(),
-          })
-          .try_into()?,
-        ))
-        .await
-      {
-        error!("Failed to respond to malformed message: {e}");
-      }
+      error!("Failed to parse message: {err}; dropping message");
+      debug!("Message content: {msg}");
+      tx.send_msg(ProtocolMessage::None);
     }
   }
-  Ok(None)
 }

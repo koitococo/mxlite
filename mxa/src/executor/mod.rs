@@ -3,9 +3,14 @@ mod file_task;
 mod script_task;
 
 use log::warn;
+use tokio::sync::mpsc::Sender;
+use tokio_tungstenite::tungstenite::Message;
 
-use crate::net::Context;
-use common::protocol::messaging::{AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse};
+use common::protocol::messaging::{
+  AgentResponse, AgentResponsePayload, ControllerRequest, ControllerRequestPayload, ErrorResponse, Status,
+};
+
+use crate::net::MessageSend as _;
 
 trait RequestHandler<T> {
   async fn handle(&self) -> Result<T, ErrorResponse>;
@@ -22,16 +27,20 @@ impl RequestHandler<AgentResponsePayload> for ControllerRequest {
   }
 }
 
-pub(crate) async fn handle_event(ctx: Context) {
-  let task_result = ctx.request.handle().await;
-  let responding_result = match task_result {
-    Ok(payload) => ctx.respond(true, payload).await,
+pub(crate) async fn handle_event(request: ControllerRequest, tx: Sender<Message>) {
+  match request.handle().await {
+    Ok(payload) => tx.send_msg(AgentResponse {
+      id: request.id,
+      status: Status::Ok,
+      payload,
+    }),
     Err(err) => {
       warn!("Failed to handle request: {}", err.message);
-      ctx.respond(false, err.into()).await
+      tx.send_msg(AgentResponse {
+        id: request.id,
+        status: Status::Error,
+        payload: err.into(),
+      })
     }
   };
-  if responding_result.is_err() {
-    warn!("Failed to respond to request: {}", ctx.request.id);
-  }
 }

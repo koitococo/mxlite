@@ -24,3 +24,10 @@ impl TryFrom<Message> for String {
 
   fn try_from(value: Message) -> Result<Self, Self::Error> { serde_json::to_string(&value) }
 }
+
+impl From<ControllerRequest> for Message {
+  fn from(value: ControllerRequest) -> Self { Message::ControllerRequest(value) }
+}
+impl From<AgentResponse> for Message {
+  fn from(value: AgentResponse) -> Self { Message::AgentResponse(value) }
+}
