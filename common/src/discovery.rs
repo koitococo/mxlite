@@ -24,11 +24,9 @@ pub enum DiscoveryError {
   ProtocolError(&'static str),
   #[error("Deserialization Error: {0}")]
   DeserializationError(#[from] serde_json::Error),
-  #[error("Request Error: {0}")]
-  RequestError(#[from] reqwest::Error),
 }
 
-pub async fn discover_controller_once() -> Result<Vec<String>, DiscoveryError> {
+pub async fn discover_controller_once() -> Result<Vec<Url>, DiscoveryError> {
   info!("Discovering controller");
   let socket = UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).await?;
   socket.set_broadcast(true)?;
@@ -49,12 +47,12 @@ pub async fn discover_controller_once() -> Result<Vec<String>, DiscoveryError> {
       .await?;
     select! {
         _ = tokio::time::sleep(Duration::from_secs(3)) => {
-            info!("Discovery timeout");
+          info!("Discovery timeout");
         }
         r = recv_pack(&socket) => {
-            if let Some(wss) = handle_pack(r).await {
-                return Ok(wss);
-            }
+          if let Some(wss) = handle_pack(r).await {
+            return Ok(wss);
+          }
         }
     }
   }
@@ -83,7 +81,7 @@ async fn recv_pack(socket: &UdpSocket) -> Result<DiscoveryResponse, DiscoveryErr
   }
 }
 
-async fn handle_pack(r: Result<DiscoveryResponse, DiscoveryError>) -> Option<Vec<String>> {
+async fn handle_pack(r: Result<DiscoveryResponse, DiscoveryError>) -> Option<Vec<Url>> {
   match r {
     Ok(resp) => match handle_resp(resp).await {
       Ok(wss) => {
@@ -105,39 +103,87 @@ async fn handle_pack(r: Result<DiscoveryResponse, DiscoveryError>) -> Option<Vec
   None
 }
 
-async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<String>, DiscoveryError> {
-  let ws2: Vec<String> = join_all(resp.ws.iter().map(async |ws: &String| -> Option<String> {
-    if let Ok(mut url) = Url::from_str(ws.as_str()) {
-      if url.set_scheme("http").is_err() {
-        warn!("Invalid URL: {ws}");
-        return None;
-      }
-      debug!("Pinging controller with url: {ws}");
-      if let Err(e) = http_ping(url, 5).await {
-        warn!("Failed to ping controller: {ws}: {e}");
-        return None;
-      }
-      info!("Discovered controller: {ws}");
-      return Some(ws.clone());
-    }
-    None
-  }))
-  .await
-  .iter()
-  .filter_map(|i| i.clone())
-  .collect();
+async fn handle_resp(resp: DiscoveryResponse) -> Result<Vec<Url>, DiscoveryError> {
+  let ws2: Vec<Url> = join_all(resp.ws.iter().map(async |ws| -> Option<Url> { handle_url(ws.as_str()).await }))
+    .await
+    .iter()
+    .filter_map(|i| i.clone())
+    .collect();
   info!("Discovered {} controllers", ws2.len());
   Ok(ws2)
 }
 
-async fn http_ping(url: Url, timeout: u64) -> Result<bool, DiscoveryError> {
-  Ok(
-    reqwest::Client::new()
-      .head(url)
-      .timeout(Duration::from_secs(timeout))
-      .send()
-      .await?
-      .status()
-      .is_success(),
-  )
+async fn https_ping(url: Url) -> bool {
+  let r = match reqwest::Client::builder()
+    .danger_accept_invalid_certs(true) // Controller may use self-signed certs, and we don't care because it's not being used to authenticate
+    .build()
+  {
+    Ok(v) => v,
+    Err(e) => {
+      error!("Failed to create HTTP client: {e}");
+      return false;
+    }
+  };
+  let r = match r.head(url.clone()).timeout(Duration::from_secs(5)).send().await {
+    Ok(v) => v,
+    Err(e) => {
+      warn!("Failed to send request to {url}: {e}");
+      return false;
+    }
+  };
+  r.status().is_success()
+}
+
+async fn test_url(url: Url) -> bool {
+  let mut url = url.clone();
+  match url.scheme() {
+    "ws" => {
+      if url.set_scheme("http").is_err() {
+        error!("Failed to set scheme for {url}");
+        return false;
+      }
+    }
+    "wss" => {
+      if url.set_scheme("https").is_err() {
+        error!("Failed to set scheme for {url}");
+        return false;
+      }
+    }
+    "http" | "https" => {}
+    _ => {
+      error!("Unsupported URL scheme");
+      return false;
+    }
+  }
+  https_ping(url).await
+}
+
+async fn handle_url(url: &str) -> Option<Url> {
+  let Ok(mut url) = Url::from_str(url) else {
+    warn!("Invalid URL: {url}");
+    return None;
+  };
+  if !test_url(url.clone()).await {
+    warn!("Invalid controller URL: {url}");
+    return None;
+  }
+  match url.scheme() {
+    "ws" | "wss" => {}
+    "http" => {
+      if url.set_scheme("ws").is_err() {
+        error!("Failed to set scheme for {url}");
+        return None;
+      }
+    }
+    "https" => {
+      if url.set_scheme("wss").is_err() {
+        error!("Failed to set scheme for {url}");
+        return None;
+      }
+    }
+    _ => {
+      unreachable!() // This should never happen because we check the scheme in test_url
+    }
+  }
+  Some(url)
 }

@@ -5,3 +5,5 @@ pub mod logger;
 pub mod protocol;
 pub mod system_info;
 pub mod utils;
+
+pub use url::Url;

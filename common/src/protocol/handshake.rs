@@ -3,6 +3,7 @@ use std::str::FromStr;
 use base64::{DecodeError, Engine as _, engine::general_purpose};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use url::Url;
 
 use crate::system_info::SystemInfo;
 
@@ -12,7 +13,7 @@ pub struct ConnectHandshake {
   pub host_id: String,
   pub session_id: String,
   pub envs: Vec<String>,
-  pub controller_url: String,
+  pub controller_url: Url,
   pub system_info: SystemInfo,
 }
 

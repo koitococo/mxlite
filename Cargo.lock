@@ -397,6 +397,7 @@ dependencies = [
  "thiserror 2.0.12",
  "time",
  "tokio",
+ "url",
  "xxhash-rust",
 ]
 
@@ -1169,7 +1170,6 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "tower-http",
- "url",
 ]
 
 [[package]]
@@ -2268,6 +2268,7 @@ dependencies = [
  "form_urlencoded",
  "idna",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]

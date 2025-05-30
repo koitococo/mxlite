@@ -19,7 +19,6 @@ rand = "0.9.0"
 futures-util = "0.3.31"
 tower-http = { version = "0.6.2", features = ["fs"] }
 clap = { version = "4.5.35", features = ["derive", "env"] }
-url = "2.5.4"
 http-range-header = "0.4.2"
 httpdate = "1.0.3"
 rcgen = { git = "https://github.com/koitococo/rcgen.git", branch = "v0.13.2", features = [

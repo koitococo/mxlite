@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use common::{
   discovery::discover_controller_once,
   protocol::{
@@ -6,6 +8,7 @@ use common::{
   },
   system_info::{self},
 };
+use reqwest::Url;
 use tokio::{
   net::TcpStream,
   select,
@@ -69,7 +72,7 @@ enum BreakLoopReason {
   Nonbreak,
 }
 
-async fn discover_controller() -> Vec<String> {
+async fn discover_controller() -> Vec<Url> {
   loop {
     match discover_controller_once().await {
       Ok(r) => return r,
@@ -87,17 +90,17 @@ pub(crate) async fn handle_ws_url(
   env_ws_url: Option<String>, host_id: String, session_id: String, envs: Vec<String>,
 ) -> Result<bool> {
   loop {
-    let ws_url = if let Some(env_ws_url) = env_ws_url.clone() {
-      info!("Using controller URL from environment variable: {}", &env_ws_url);
-      env_ws_url
+    let ws_url: Url = if let Some(env_ws_url) = env_ws_url.as_ref() {
+      info!("Using controller URL from environment variable: {env_ws_url}");
+      Url::from_str(env_ws_url.as_str()).unwrap()
     } else {
       info!("Discovering controller URL...");
       let controllers = select! {
-          r = discover_controller() => r,
-          _ = tokio::signal::ctrl_c() => {
-              info!("Received Ctrl-C, canceling discovery and exit");
-              return Ok(true);
-          }
+        r = discover_controller() => r,
+        _ = tokio::signal::ctrl_c() => {
+          info!("Received Ctrl-C, canceling discovery and exit");
+          return Ok(true);
+        }
       };
       if controllers.is_empty() {
         warn!("No controller discovered");
@@ -108,12 +111,12 @@ pub(crate) async fn handle_ws_url(
     };
     info!("Connecting to controller websocket: {}", &ws_url);
 
-    let mut req = ws_url.clone().into_client_request()?;
+    let mut req = ws_url.as_str().into_client_request()?;
     req.headers_mut().insert(
       CONNECT_HANDSHAKE_HEADER_KEY,
       (ConnectHandshake {
         version: PROTOCOL_VERSION,
-        controller_url: ws_url.clone(),
+        controller_url: ws_url,
         host_id: host_id.clone(),
         session_id: session_id.clone(),
         envs: envs.clone(),

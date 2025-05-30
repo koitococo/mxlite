@@ -7,7 +7,7 @@ use common::{
   utils::{
     mailbox::{Mailbox, SimpleMailbox},
     state::{AtomticStateStorage, StateStorage as _},
-  },
+  }, Url,
 };
 use log::{debug, warn};
 use serde::Serialize;
@@ -27,7 +27,7 @@ pub(crate) enum TaskState {
 #[derive(Serialize, Debug, Clone)]
 pub(crate) struct ExtraInfo {
   pub(crate) socket_info: SocketConnectInfo,
-  pub(crate) controller_url: String,
+  pub(crate) controller_url: Url,
   pub(crate) system_info: SystemInfo,
   pub(crate) envs: Vec<String>,
   pub(crate) session_id: String,

@@ -11,17 +11,28 @@ digest = "0.10.7"
 futures-util = "0.3.31"
 log = { version = "0.4.27", features = ["std"] }
 md-5 = "0.10.6"
-reqwest = { version = "0.12.15", default-features = false }
+reqwest = { version = "0.12.15", default-features = false, features = [
+  "rustls-tls",
+] }
 serde = { version = "1.0.206", features = ["derive"] }
 serde_json = "1.0.124"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
 sha3 = "0.10.8"
 thiserror = "2.0.12"
-time = { version = "0.3.41", features = ["formatting", "local-offset", "macros"] }
+time = { version = "0.3.41", features = [
+  "formatting",
+  "local-offset",
+  "macros",
+] }
 tokio = { version = "1.44.1", features = ["fs", "io-util", "macros", "sync"] }
+url = { version = "2.5.4", features = ["serde"] }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-sysinfo = { version = "0.34.1", features = ["serde", "linux-netdevs", "linux-tmpfs"] }
+sysinfo = { version = "0.34.1", features = [
+  "serde",
+  "linux-netdevs",
+  "linux-tmpfs",
+] }
 nix = { version = "0.29.0", features = ["feature"] }

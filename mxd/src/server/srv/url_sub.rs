@@ -10,7 +10,6 @@ use axum::{
 use if_addrs::IfAddr;
 use log::error;
 use serde::{Deserialize, Serialize};
-use url::Url;
 
 use crate::states::{SharedAppState, host_session::ExtraInfo};
 
@@ -53,56 +52,42 @@ async fn get_by_host(
   State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByHostParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
   if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
-    match Url::parse(&info.controller_url) {
-      Ok(mut url) => {
-        let success = if params.https.unwrap_or(false) {
-          if let Some(https) = app.startup_args.https_args.as_ref() {
-            url.set_scheme("https").is_ok() && url.set_port(Some(https.port)).is_ok()
-          } else {
-            return (
-              StatusCode::BAD_REQUEST,
-              Json(GetUrlSubResponse {
-                ok: false,
-                error: Some("HTTPS is not enabled".to_string()),
-                urls: vec![],
-              }),
-            );
-          }
-        } else {
-          url.set_scheme("http").is_ok() && url.set_port(Some(app.startup_args.http_port)).is_ok()
-        };
-        if success {
-          url.set_path(&params.path.unwrap_or("".to_string()));
-          (
-            StatusCode::OK,
-            Json(GetUrlSubResponse {
-              ok: true,
-              error: None,
-              urls: vec![url.to_string()],
-            }),
-          )
-        } else {
-          (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(GetUrlSubResponse {
-              ok: false,
-              error: Some("Failed to retrive url".to_string()),
-              urls: vec![],
-            }),
-          )
-        }
-      }
-      Err(e) => {
-        error!("Failed to parse URL: {e}");
-        (
-          StatusCode::INTERNAL_SERVER_ERROR,
+    let mut url = info.controller_url.clone();
+    let success = if params.https.unwrap_or(false) {
+      if let Some(https) = app.startup_args.https_args.as_ref() {
+        url.set_scheme("https").is_ok() && url.set_port(Some(https.port)).is_ok()
+      } else {
+        return (
+          StatusCode::BAD_REQUEST,
           Json(GetUrlSubResponse {
             ok: false,
-            error: Some(e.to_string()),
+            error: Some("HTTPS is not enabled".to_string()),
             urls: vec![],
           }),
-        )
+        );
       }
+    } else {
+      url.set_scheme("http").is_ok() && url.set_port(Some(app.startup_args.http_port)).is_ok()
+    };
+    if success {
+      url.set_path(&params.path.unwrap_or("".to_string()));
+      (
+        StatusCode::OK,
+        Json(GetUrlSubResponse {
+          ok: true,
+          error: None,
+          urls: vec![url.to_string()],
+        }),
+      )
+    } else {
+      (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(GetUrlSubResponse {
+          ok: false,
+          error: Some("Failed to retrive url".to_string()),
+          urls: vec![],
+        }),
+      )
     }
   } else {
     (
