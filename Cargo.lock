@@ -379,6 +379,7 @@ dependencies = [
 name = "common"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base16ct",
  "base64",
  "colored",
@@ -386,6 +387,7 @@ dependencies = [
  "futures-util",
  "log",
  "md-5",
+ "mlua",
  "nix",
  "reqwest",
  "serde",
@@ -1149,7 +1151,6 @@ dependencies = [
  "common",
  "futures-util",
  "log",
- "mlua",
  "nix",
  "rand 0.9.1",
  "reqwest",

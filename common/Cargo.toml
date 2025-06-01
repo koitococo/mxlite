@@ -28,6 +28,8 @@ time = { version = "0.3.41", features = [
 tokio = { version = "1.44.1", features = ["fs", "io-util", "macros", "sync"] }
 url = { version = "2.5.4", features = ["serde"] }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
+mlua = { version = "0.10.3", features = ["vendored", "lua54", "async", "anyhow", "serialize", "send"] }
+anyhow = "1.0.86"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sysinfo = { version = "0.34.1", features = [

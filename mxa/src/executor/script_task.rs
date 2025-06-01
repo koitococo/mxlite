@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::script::ExecutorContext;
+use common::script::ExecutorContext;
 use common::protocol::messaging::{ErrorResponse, ScriptEvalRequest, ScriptEvalResponse};
 
 use super::RequestHandler;

@@ -7,7 +7,6 @@ use utils::random_str;
 
 mod executor;
 mod net;
-pub mod script;
 mod utils;
 
 #[derive(Parser, Debug)]
@@ -81,7 +80,7 @@ async fn script_main(script: String) -> Result<()> {
       return Ok(());
     }
   };
-  let ctx = crate::script::ExecutorContext::try_new()?;
+  let ctx = common::script::ExecutorContext::try_new()?;
   if let Err(e) = ctx.exec_async(&content).await {
     error!("Failed to execute script: {e}");
   } else {
