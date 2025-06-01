@@ -10,3 +10,4 @@ pub mod util_func;
 pub const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH"));
 
 pub use url::Url;
+pub use reqwest;
