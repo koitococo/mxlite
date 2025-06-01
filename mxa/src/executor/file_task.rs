@@ -1,6 +1,6 @@
 use std::{fs::OpenOptions, io::Write as _};
 
-use crate::utils::{download_file, upload_file};
+use common::util_func::{download_file, upload_file};
 use anyhow::Result;
 use common::{
   hash::xxh3_for_file,

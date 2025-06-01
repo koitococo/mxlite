@@ -5,6 +5,7 @@ pub mod logger;
 pub mod protocol;
 pub mod system_info;
 pub mod utils;
+pub mod util_func;
 
 pub const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " - ", env!("GIT_HASH"));
 

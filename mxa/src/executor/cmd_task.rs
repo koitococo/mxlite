@@ -1,6 +1,6 @@
 use log::debug;
 
-use crate::utils::{execute_command, execute_shell};
+use common::util_func::{execute_command, execute_shell};
 use anyhow::Result;
 use common::protocol::messaging::{CommandExecutionRequest, CommandExecutionResponse, ErrorResponse};
 
