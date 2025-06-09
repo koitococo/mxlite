@@ -8,6 +8,7 @@ use utils::random_str;
 mod executor;
 mod net;
 mod utils;
+mod script;
 
 #[derive(Parser, Debug)]
 #[command(version = common::VERSION)]
@@ -28,11 +29,11 @@ struct Cli {
 #[cfg(target_os = "linux")]
 #[tokio::main]
 async fn main() -> Result<()> {
-  let config = Cli::parse();
+  let cli = Cli::parse();
 
-  common::logger::install_logger(config.verbose);
+  common::logger::install_logger(cli.verbose);
 
-  if let Some(script_path) = config.script {
+  if let Some(script_path) = cli.script {
     return script_main(script_path).await;
   }
 
@@ -59,7 +60,7 @@ async fn main() -> Result<()> {
     .collect::<Vec<_>>();
 
   loop {
-    match net::handle_ws_url(config.ws_url.clone(), host_id.clone(), session_id.clone(), envs.clone()).await {
+    match net::handle_ws_url(cli.ws_url.clone(), host_id.clone(), session_id.clone(), envs.clone()).await {
       Err(err) => {
         error!("Agent failed: {err}");
       }
@@ -80,7 +81,7 @@ async fn script_main(script: String) -> Result<()> {
       return Ok(());
     }
   };
-  let ctx = common::script::ExecutorContext::try_new()?;
+  let ctx = script::ExecutorContext::try_new()?;
   if let Err(e) = ctx.exec_async(&content).await {
     error!("Failed to execute script: {e}");
   } else {

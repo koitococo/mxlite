@@ -4,6 +4,7 @@ use log::{info, warn};
 use utils::get_cert_from_file;
 
 mod discovery;
+mod script;
 mod server;
 mod states;
 mod utils;
@@ -82,6 +83,10 @@ struct Cli {
   /// Must be used with `--https`, `--tls-cert`,`--tls-key`, `--ca-cert`, `--ca-key`.
   #[clap(short = 'g', long, env = "MXD_GENERATE_CERT", default_value = "false")]
   generate_cert: bool,
+
+  /// Execute provided lua script. This option will not start server.
+  #[clap(long)]
+  script: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -136,11 +141,19 @@ impl TryFrom<Cli> for StartupArgs {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-  let config = Cli::parse();
+  let cli = Cli::parse();
 
-  common::logger::install_logger(config.verbose);
+  if let Some(script) = &cli.script {
+    info!("Executing script: {script}");
+    let ctx = script::ExecutorContext::try_new()?;
+    ctx.exec_async(script).await?;
+    info!("Script executed successfully");
+    return Ok(());
+  }
 
-  let args = StartupArgs::try_from(config)?;
+  common::logger::install_logger(cli.verbose);
+
+  let args = StartupArgs::try_from(cli)?;
   info!("MetalX Controller - Launching");
 
   if args.detect_others {

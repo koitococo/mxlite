@@ -44,7 +44,6 @@ impl Serialize for ValueType {
     }
   }
 }
-
 struct ValueTypeVisitor {
   marker: PhantomData<fn() -> ValueType>,
 }
@@ -258,5 +257,23 @@ impl Display for ValueType {
       "{}",
       serde_json::to_string_pretty(self).map_err(|_| { std::fmt::Error {} })?
     )
+  }
+}
+
+impl ValueType {
+  pub fn serialize_to_json(&self) -> Result<String> {
+    serde_json::to_string(self).map_err(|e| anyhow::anyhow!("Failed to serialize ValueType: {}", e))
+  }
+
+  pub fn deserialize_from_json(json: &str) -> Result<Self> {
+    serde_json::from_str(json).map_err(|e| anyhow::anyhow!("Failed to deserialize ValueType: {}", e))
+  }
+
+  pub fn serialize_to_yaml(&self) -> Result<String> {
+    serde_yml::to_string(self).map_err(|e| anyhow::anyhow!("Failed to serialize ValueType: {}", e))
+  }
+
+  pub fn deserialize_from_yaml(yaml: &str) -> Result<Self> {
+    serde_yml::from_str(yaml).map_err(|e| anyhow::anyhow!("Failed to deserialize ValueType: {}", e))
   }
 }

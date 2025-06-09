@@ -14,10 +14,10 @@ fn lua_json_encode(_: &Lua, vt: Value) -> mlua::Result<String> {
 }
 
 fn lua_json_decode(lua: &Lua, s: String) -> mlua::Result<Value> {
-  let v: ValueType = match serde_json::from_str(&s).ok() {
-    Some(v) => v,
-    None => {
-      return Err(mlua::Error::RuntimeError(format!("Failed to parse JSON: {s}")));
+  let v: ValueType = match serde_json::from_str(&s) {
+    Ok(v) => v,
+    Err(e) => {
+      return Err(mlua::Error::RuntimeError(format!("Failed to parse JSON: {e}")));
     }
   };
   let vt = v.try_into_lua(lua)?;

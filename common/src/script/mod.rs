@@ -1,10 +1,9 @@
-use std::{collections::HashMap, sync::Arc};
-
 use anyhow::Result;
 use mlua::{FromLuaMulti, IntoLuaMulti, Lua, MultiValue, StdLib};
 mod libs;
 mod value_type;
-use self::value_type::ValueType;
+
+pub use self::value_type::ValueType;
 pub struct VecValue(Vec<ValueType>);
 
 impl FromLuaMulti for VecValue {
@@ -27,47 +26,39 @@ impl IntoLuaMulti for VecValue {
   }
 }
 
-pub trait Func {
+pub trait Invokable {
   fn call(&self, lua: &Lua, args: VecValue) -> mlua::Result<VecValue>;
 }
-type FuncObj = Arc<Box<dyn Func + Send + Sync>>;
+pub type FuncObj = Box<dyn Invokable + Send + Sync>;
 
 pub struct ExecutorContext {
   lua: Lua,
-  func: HashMap<String, FuncObj>,
 }
 
 impl ExecutorContext {
-  pub fn try_new() -> Result<Self> {
+  pub fn try_new_with_fn<T: IntoIterator<Item = (String, FuncObj)>>(fn_map: Option<T>) -> Result<Self> {
     let lua = Lua::new();
-    let ctx = Self {
-      lua,
-      func: HashMap::new(),
-    };
-    ctx.init()?;
-    Ok(ctx)
-  }
+    lua.load_std_libs(StdLib::ALL_SAFE)?;
 
-  pub fn try_new_with_func(func: HashMap<String, FuncObj>) -> Result<Self> {
-    let lua = Lua::new();
-    let ctx = Self { lua, func };
-    ctx.init()?;
-    Ok(ctx)
-  }
+    let f_table = lua.create_table()?;
+    f_table.set("version", crate::VERSION)?;
+    libs::register(&lua, &f_table)?;
 
-  fn init(&self) -> Result<()> {
-    self.lua.load_std_libs(StdLib::ALL_SAFE)?;
-    let f_table = self.lua.create_table()?;
-    for (f_name, f) in self.func.iter() {
-      let f = f.clone();
-      f_table.set(
-        f_name.clone(),
-        self.lua.create_function(move |lua, args: VecValue| f.call(lua, args))?,
-      )?;
+    if let Some(fn_map) = fn_map {
+      for (name, func) in fn_map {
+        let Ok(f) = lua.create_function(move |lua, args: VecValue| func.call(lua, args)) else {
+            anyhow::bail!("Failed to create function for: {name}");
+          };
+        f_table.set(name, f)?;
+      }
     }
-    libs::register(&self.lua, &f_table)?;
-    self.lua.globals().set("mxa", f_table)?;
-    Ok(())
+    lua.globals().set("mx", f_table)?;
+
+    Ok(ExecutorContext { lua })
+  }
+
+  pub fn try_new() -> Result<Self> {
+    Self::try_new_with_fn::<Vec<(String, FuncObj)>>(None)
   }
 
   pub async fn exec_async(&self, script: &str) -> Result<()> {
