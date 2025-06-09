@@ -8,7 +8,7 @@ use common::{
   },
   system_info::{self},
 };
-use reqwest::Url;
+use common::Url;
 use tokio::{
   net::TcpStream,
   select,

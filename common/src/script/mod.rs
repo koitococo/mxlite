@@ -26,6 +26,20 @@ impl IntoLuaMulti for VecValue {
   }
 }
 
+impl From<Vec<ValueType>> for VecValue {
+  fn from(vec: Vec<ValueType>) -> Self { VecValue(vec) }
+}
+
+impl From<VecValue> for Vec<ValueType> {
+  fn from(vec_value: VecValue) -> Self { vec_value.0 }
+}
+
+impl VecValue {
+  pub fn from_iter<I: IntoIterator<Item = impl Into<ValueType>>>(iter: I) -> Self {
+    VecValue(iter.into_iter().map(Into::into).collect())
+  }
+}
+
 pub trait Invokable {
   fn call(&self, lua: &Lua, args: VecValue) -> mlua::Result<VecValue>;
 }
@@ -47,8 +61,8 @@ impl ExecutorContext {
     if let Some(fn_map) = fn_map {
       for (name, func) in fn_map {
         let Ok(f) = lua.create_function(move |lua, args: VecValue| func.call(lua, args)) else {
-            anyhow::bail!("Failed to create function for: {name}");
-          };
+          anyhow::bail!("Failed to create function for: {name}");
+        };
         f_table.set(name, f)?;
       }
     }
@@ -57,9 +71,7 @@ impl ExecutorContext {
     Ok(ExecutorContext { lua })
   }
 
-  pub fn try_new() -> Result<Self> {
-    Self::try_new_with_fn::<Vec<(String, FuncObj)>>(None)
-  }
+  pub fn try_new() -> Result<Self> { Self::try_new_with_fn::<Vec<(String, FuncObj)>>(None) }
 
   pub async fn exec_async(&self, script: &str) -> Result<()> {
     self.lua.load(script).exec_async().await?;
@@ -70,5 +82,11 @@ impl ExecutorContext {
     let result = self.lua.load(script).eval_async().await?;
     let vt = ValueType::try_from_lua(result)?;
     Ok(vt)
+  }
+
+  pub async fn invoke_async(&self, script: &str, args: VecValue) -> Result<ValueType> {
+    let func = self.lua.load(script).into_function()?;
+    let result: ValueType = func.call_async(args).await?;
+    Ok(result)
   }
 }

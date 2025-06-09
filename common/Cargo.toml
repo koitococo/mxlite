@@ -14,6 +14,13 @@ log = { version = "0.4.27", features = ["std"] }
 md-5 = "0.10.6"
 reqwest = { version = "0.12.15", default-features = false, features = [
   "rustls-tls",
+  "rustls-tls-webpki-roots",
+  "rustls-tls-native-roots",
+  "gzip",
+  "brotli",
+  "zstd",
+  "deflate",
+  "stream",
 ] }
 serde = { version = "1.0.206", features = ["derive"] }
 serde_json = "1.0.124"
@@ -26,10 +33,23 @@ time = { version = "0.3.41", features = [
   "local-offset",
   "macros",
 ] }
-tokio = { version = "1.44.1", features = ["fs", "io-util", "macros", "sync", "process"] }
+tokio = { version = "1.44.1", features = [
+  "fs",
+  "io-util",
+  "macros",
+  "sync",
+  "process",
+] }
 url = { version = "2.5.4", features = ["serde"] }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
-mlua = { version = "0.10.3", features = ["vendored", "lua54", "async", "anyhow", "serialize", "send"] }
+mlua = { version = "0.10.3", features = [
+  "vendored",
+  "lua54",
+  "async",
+  "anyhow",
+  "serialize",
+  "send",
+] }
 serde_yml = "0.0.12"
 
 [target.'cfg(target_os = "linux")'.dependencies]
