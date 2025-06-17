@@ -8,7 +8,6 @@ authors = ["Koi to Coco <admin@koito.fun>"]
 common = { path = "../common" }
 axum = { version = "0.8.1", features = ["ws"] }
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
 tokio = { version = "1.44.0", features = ["sync", "rt-multi-thread", "signal"] }
 anyhow = "1.0.97"
 log = "0.4.26"

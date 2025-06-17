@@ -42,6 +42,15 @@ tokio = { version = "1.44.1", features = [
 ] }
 url = { version = "2.5.4", features = ["serde"] }
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
+mlua = { version = "0.10.3", features = [
+  "vendored",
+  "lua54",
+  "async",
+  "anyhow",
+  "serialize",
+  "send",
+] }
+serde_yml = "0.0.12"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sysinfo = { version = "0.34.1", features = [
@@ -51,4 +60,4 @@ sysinfo = { version = "0.34.1", features = [
 ] }
 
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.29.0", features = ["feature"] }
+nix = { version = "0.29.0", features = ["feature", "signal"] }

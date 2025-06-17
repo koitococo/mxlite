@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use log::debug;
-use common::reqwest::Method;
+use reqwest::Method;
 
 use crate::script::value_type::ValueType;
 
@@ -112,7 +112,7 @@ impl From<LuaFetchResponse> for ValueType {
 async fn lua_fetch(_: mlua::Lua, req: ValueType) -> mlua::Result<ValueType> {
   debug!("lua_fetch: {req:?}");
   let req: LuaFetchRequst = req.try_into()?;
-  let client = common::reqwest::Client::new();
+  let client = reqwest::Client::new();
   let mut builder = client.request(
     {
       if let Some(v) = req.method {

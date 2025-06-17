@@ -32,11 +32,11 @@
 ---@field encode fun(data: string):table
 ---@field decode fun(data: table):string
 
----@class MxaScriptModule
+---@class MxCommonScriptModule
 ---@field create_subprocess fun(program:string, args:string[]):MxaSubprocess
 ---@field run_with_args fun(program:string, args:string[]):(string, string, number)
 ---@field fetch fun(req: MxaFetchRequest):MxaFetchResponse
 ---@field json MxaJson
 
----@type MxaScriptModule
-mxa = mxa
+---@type MxCommonScriptModule
+mx = mx

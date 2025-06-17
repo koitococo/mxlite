@@ -44,7 +44,6 @@ impl Serialize for ValueType {
     }
   }
 }
-
 struct ValueTypeVisitor {
   marker: PhantomData<fn() -> ValueType>,
 }
@@ -251,6 +250,58 @@ impl From<ValueType> for Option<Vec<ValueType>> {
   fn from(val: ValueType) -> Self { if let ValueType::Array(v) = val { Some(v) } else { None } }
 }
 
+impl From<String> for ValueType {
+  fn from(val: String) -> Self { ValueType::String(val) }
+}
+
+impl From<i64> for ValueType {
+  fn from(val: i64) -> Self { ValueType::Integer(val) }
+}
+
+impl From<i32> for ValueType {
+  fn from(val: i32) -> Self { ValueType::Integer(val as i64) }
+}
+
+impl From<u32> for ValueType {
+  fn from(val: u32) -> Self { ValueType::Integer(val as i64) }
+}
+
+impl From<i16> for ValueType {
+  fn from(val: i16) -> Self { ValueType::Integer(val as i64) }
+}
+
+impl From<u16> for ValueType {
+  fn from(val: u16) -> Self { ValueType::Integer(val as i64) }
+}
+
+impl From<i8> for ValueType {
+  fn from(val: i8) -> Self { ValueType::Integer(val as i64) }
+}
+
+impl From<u8> for ValueType {
+  fn from(val: u8) -> Self { ValueType::Integer(val as i64) }
+}
+
+impl From<f64> for ValueType {
+  fn from(val: f64) -> Self { ValueType::Float(val) }
+}
+
+impl From<f32> for ValueType {
+  fn from(val: f32) -> Self { ValueType::Float(val as f64) }
+}
+
+impl From<bool> for ValueType {
+  fn from(val: bool) -> Self { ValueType::Boolean(val) }
+}
+
+impl From<HashMap<String, ValueType>> for ValueType {
+  fn from(val: HashMap<String, ValueType>) -> Self { ValueType::Table(val) }
+}
+
+impl From<Vec<ValueType>> for ValueType {
+  fn from(val: Vec<ValueType>) -> Self { ValueType::Array(val) }
+}
+
 impl Display for ValueType {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -258,5 +309,23 @@ impl Display for ValueType {
       "{}",
       serde_json::to_string_pretty(self).map_err(|_| { std::fmt::Error {} })?
     )
+  }
+}
+
+impl ValueType {
+  pub fn serialize_to_json(&self) -> Result<String> {
+    serde_json::to_string(self).map_err(|e| anyhow::anyhow!("Failed to serialize ValueType: {}", e))
+  }
+
+  pub fn deserialize_from_json(json: &str) -> Result<Self> {
+    serde_json::from_str(json).map_err(|e| anyhow::anyhow!("Failed to deserialize ValueType: {}", e))
+  }
+
+  pub fn serialize_to_yaml(&self) -> Result<String> {
+    serde_yml::to_string(self).map_err(|e| anyhow::anyhow!("Failed to serialize ValueType: {}", e))
+  }
+
+  pub fn deserialize_from_yaml(yaml: &str) -> Result<Self> {
+    serde_yml::from_str(yaml).map_err(|e| anyhow::anyhow!("Failed to deserialize ValueType: {}", e))
   }
 }
