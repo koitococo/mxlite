@@ -376,35 +376,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base16ct",
- "base64",
- "colored",
- "digest",
- "futures-util",
- "log",
- "md-5",
- "mlua",
- "nix",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yml",
- "sha1",
- "sha2",
- "sha3",
- "sysinfo",
- "thiserror 2.0.12",
- "time",
- "tokio",
- "url",
- "xxhash-rust",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1176,42 +1147,44 @@ dependencies = [
 ]
 
 [[package]]
-name = "mxa"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "common",
- "futures-util",
- "log",
- "nix",
- "rand 0.9.1",
- "tokio",
- "tokio-tungstenite 0.23.1",
-]
-
-[[package]]
-name = "mxd"
-version = "0.1.0"
+name = "mxlite"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
+ "base16ct",
+ "base64",
  "clap",
- "common",
+ "colored",
+ "digest",
  "futures",
  "futures-util",
  "http-range-header",
  "httpdate",
  "if-addrs",
  "log",
+ "md-5",
+ "mlua",
+ "nix",
  "rand 0.9.1",
  "rcgen",
+ "reqwest",
  "serde",
+ "serde_json",
+ "serde_yml",
+ "sha1",
+ "sha2",
+ "sha3",
+ "sysinfo",
+ "thiserror 2.0.12",
  "time",
  "tokio",
  "tokio-rustls",
+ "tokio-tungstenite 0.23.1",
  "tokio-util",
  "tower-http",
+ "url",
+ "xxhash-rust",
 ]
 
 [[package]]

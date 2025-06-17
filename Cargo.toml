@@ -1,3 +1,88 @@
-[workspace]
-resolver = "2"
-members = [ "common","mxa", "mxd"]
+[package]
+name = "mxlite"
+version = "0.2.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+base16ct = "0.2.0"
+base64 = "0.22.1"
+colored = "3.0.0"
+digest = "0.10.7"
+futures-util = "0.3.31"
+log = { version = "0.4.27", features = ["std"] }
+md-5 = "0.10.6"
+reqwest = { version = "0.12.15", default-features = false, features = [
+  "rustls-tls",
+  "rustls-tls-webpki-roots",
+  "rustls-tls-native-roots",
+  "gzip",
+  "brotli",
+  "zstd",
+  "deflate",
+  "stream",
+] }
+serde = { version = "1.0.206", features = ["derive"] }
+serde_json = "1.0.124"
+sha1 = "0.10.6"
+sha2 = "0.10.8"
+sha3 = "0.10.8"
+thiserror = "2.0.12"
+time = { version = "0.3.41", features = [
+  "formatting",
+  "local-offset",
+  "macros",
+] }
+tokio = { version = "1.44.1", features = [
+  "fs",
+  "io-util",
+  "macros",
+  "sync",
+  "process",
+  "rt-multi-thread",
+  "signal",
+  "rt",
+] }
+url = { version = "2.5.4", features = ["serde"] }
+xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
+mlua = { version = "0.10.3", features = [
+  "vendored",
+  "lua54",
+  "async",
+  "anyhow",
+  "serialize",
+  "send",
+] }
+serde_yml = "0.0.12"
+tokio-tungstenite = "0.23.1"
+rand = "0.9.0"
+clap = { version = "4.5.37", features = ["derive", "env"] }
+axum = { version = "0.8.1", features = ["ws"] }
+tokio-util = { version = "0.7.13", features = ["io"] }
+if-addrs = "0.13.3"
+tower-http = { version = "0.6.2", features = ["fs"] }
+http-range-header = "0.4.2"
+httpdate = "1.0.3"
+rcgen = { git = "https://github.com/koitococo/rcgen.git", branch = "v0.13.2", features = [
+  "x509-parser",
+  "pem",
+  "crypto",
+  "ring",
+], default-features = false }
+# rustls-pemfile = { version = "2.2.0", default-features = false }
+futures = "0.3.31"
+tokio-rustls = { version = "0.26.2", features = [
+  "ring",
+], default-features = false }
+nix = { version = "0.29.0", features = ["feature", "user"] }
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+sysinfo = { version = "0.34.1", features = [
+  "serde",
+  "linux-netdevs",
+  "linux-tmpfs",
+] }
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29.0", features = ["feature", "signal"] }
