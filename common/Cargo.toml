@@ -49,4 +49,6 @@ sysinfo = { version = "0.34.1", features = [
   "linux-netdevs",
   "linux-tmpfs",
 ] }
+
+[target.'cfg(unix)'.dependencies]
 nix = { version = "0.29.0", features = ["feature"] }

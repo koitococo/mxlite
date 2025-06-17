@@ -37,8 +37,12 @@ async fn main() -> Result<()> {
   }
 
   info!("MetalX Agent - Launching");
-  if !nix::unistd::geteuid().is_root() {
-    warn!("Running mxa as unprivileged user may cause permission issues");
+  
+  #[cfg(unix)]
+  {
+    if !nix::unistd::geteuid().is_root() {
+      warn!("Running mxa as unprivileged user may cause permission issues");
+    }
   }
 
   let host_id = utils::get_machine_id().unwrap_or_else(|| {
