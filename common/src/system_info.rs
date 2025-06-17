@@ -72,6 +72,22 @@ pub struct SystemInfo {
   pub uts: Option<UtsInfo>,
 }
 
+impl Default for SystemInfo {
+  fn default() -> Self {
+    SystemInfo {
+      total_memory: u64::MAX,
+      name: None,
+      hostname: None,
+      kernel_version: None,
+      cpus: Vec::with_capacity(0),
+      mnts: Vec::with_capacity(0),
+      nics: Vec::with_capacity(0),
+      blks: Vec::with_capacity(0),
+      uts: None,
+    }
+  }
+}
+
 #[cfg(target_os = "linux")]
 mod linux {
   use super::*;
@@ -299,3 +315,8 @@ mod linux {
 
 #[cfg(target_os = "linux")]
 pub use self::linux::collect_info;
+
+#[cfg(not(target_os = "linux"))]
+pub fn collect_info() -> SystemInfo {
+  SystemInfo::default()
+}

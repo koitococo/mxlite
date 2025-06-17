@@ -4,8 +4,8 @@ on:
   push:
 
 jobs:
-  build-mxd:
-    name: Build mxd
+  build:
+    name: Build
     strategy:
       matrix:
         target:
@@ -63,77 +63,22 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.target }}-nightly
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }} --bin mxd
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Upload Artifact
         if: success() && !contains(matrix.target, 'windows')
         uses: actions/upload-artifact@v4
         with:
-          name: mxd-${{ matrix.target }}-nightly
+          name: mxlite-${{ matrix.target }}-nightly
           path: |
+            target/${{ matrix.target }}/release/mxa
             target/${{ matrix.target }}/release/mxd
 
       - name: Upload Artifact (Windows)
         if: success() && contains(matrix.target, 'windows')
         uses: actions/upload-artifact@v4
         with:
-          name: mxd-${{ matrix.target }}-nightly.exe
+          name: mxlite-${{ matrix.target }}-nightly
           path: |
+            target/${{ matrix.target }}/release/mxa.exe
             target/${{ matrix.target }}/release/mxd.exe
-
-  build-mxa:
-    name: Build mxa
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-musl
-          - aarch64-unknown-linux-musl
-          - x86_64-unknown-linux-gnu
-          - aarch64-unknown-linux-gnu
-        include:
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-24.04
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-24.04-arm
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-24.04
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
-      fail-fast: false
-
-    runs-on: ${{matrix.os}}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
-          targets: ${{ matrix.target }}
-
-      - name: Install musl toolchain
-        if: endsWith(matrix.target, '-linux-musl')
-        run: |
-          sudo apt-get install -y musl-tools
-
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.target }}-nightly
-
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }} --bin mxa
-
-      - name: Upload Artifact
-        if: success() && !contains(matrix.target, 'windows')
-        uses: actions/upload-artifact@v4
-        with:
-          name: mxa-${{ matrix.target }}-nightly
-          path: |
-            target/${{ matrix.target }}/release/mxa
