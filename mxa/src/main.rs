@@ -26,7 +26,6 @@ struct Cli {
   script: Option<String>,
 }
 
-#[cfg(target_os = "linux")]
 #[tokio::main]
 async fn main() -> Result<()> {
   let config = Cli::parse();

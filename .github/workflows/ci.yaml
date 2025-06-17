@@ -63,22 +63,10 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.target }}-nightly
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} --bins -Z unstable-options --artifact-dir ./artifacts
 
       - name: Upload Artifact
-        if: success() && !contains(matrix.target, 'windows')
         uses: actions/upload-artifact@v4
         with:
           name: mxlite-${{ matrix.target }}-nightly
-          path: |
-            target/${{ matrix.target }}/release/mxa
-            target/${{ matrix.target }}/release/mxd
-
-      - name: Upload Artifact (Windows)
-        if: success() && contains(matrix.target, 'windows')
-        uses: actions/upload-artifact@v4
-        with:
-          name: mxlite-${{ matrix.target }}-nightly
-          path: |
-            target/${{ matrix.target }}/release/mxa.exe
-            target/${{ matrix.target }}/release/mxd.exe
+          path: ./artifacts/*
