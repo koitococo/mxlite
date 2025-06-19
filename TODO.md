@@ -1,18 +1,39 @@
-## Todo: v2
+# Development To-do List
 
-- [ ] Support agent self-update when connecting to controller
-- [ ] Implement agent event protocol
-  - [ ] Support event subscription for clients in controller api (SSE)
-- [ ] Implement reverse proxy in controller
-- [ ] Implement streaming protocol
-  - [ ] Implementation for agent
-  - [ ] Implementation for controller
-  - [ ] Support stdio redirection
-  - [ ] Support file redirection
-  - [ ] Support tcp redirection
-  - [ ] Support unix socks redirection
-- [ ] Collect more detailed system information
-  - [ ] Network Interface Card
-    - [ ] Link state
-    - [ ] Link speed
-- [ ] Support realtime command output feedback
+## Milestone: v1
+
+### Agent: Support Multiple Platforms
+
+> Status: 🏗️ Working
+
+Allow agent to work properly on multiple platforms
+
+#### macOS supports
+
+> Status: 🏗️ Working
+
+1. [ ] implement `system_info::collect_info` for macOS
+
+#### Windows supports
+
+> Status: 🗓️ Plan
+
+1. [ ] implement `system_info::collect_info` for Windows
+
+### Controllplane: Lua Extensions
+
+> Status: 🗒️ Draft
+
+Allow controllplane to perform complex flow control, and reduce redundant usage of HTTP Api (ref: [EM-GeekLab/LLMOne](https://github.com/EM-GeekLab/LLMOne))
+
+### Protocol: Binary Streaming
+
+> Status: 🗒️ Draft
+
+#### Port forwarding
+
+> Status: 🗒️ Draft
+
+#### File Upload / Download
+
+> Status: 🗒️ Draft
