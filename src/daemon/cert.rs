@@ -7,14 +7,6 @@ use rcgen::{
 };
 use time::OffsetDateTime;
 
-// pub fn generate_self_signed_cert(subject_alt_names: Vec<String>) -> Result<(String, String)> {
-//   let signed = rcgen::generate_simple_self_signed(subject_alt_names)?;
-//   let cert = signed.cert;
-//   let key = signed.key_pair;
-
-//   Ok((cert.pem(), key.serialize_pem()))
-// }
-
 /// Generates a self-signed CA certificate and its private key.
 /// Returns the PEM encoded certificate and private key.
 pub(crate) fn generate_ca_cert() -> Result<(String, String)> {
