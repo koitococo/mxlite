@@ -1,6 +1,7 @@
 #![cfg(unix)]
 
 mod linux;
+mod macos;
 
 use super::{BlkInfo, CpuInfo, IpInfo, MntInfo, NicInfo, SystemInfo, UtsInfo};
 
@@ -8,14 +9,11 @@ fn get_cpu_info() -> Option<CpuInfo> {
   // TODO: refactor this to cleanup usage of `sysinfo` crate
   let mut sysinfo_ = sysinfo::System::new_all();
   sysinfo_.refresh_cpu_list(sysinfo::CpuRefreshKind::nothing());
-  sysinfo_
-    .cpus()
-    .first()
-    .map(|cpu| CpuInfo {
-      brand: cpu.brand().to_string(),
-      name: cpu.name().to_string(),
-      vendor_id: cpu.vendor_id().to_string(),
-    })
+  sysinfo_.cpus().first().map(|cpu| CpuInfo {
+    brand: cpu.brand().to_string(),
+    name: cpu.name().to_string(),
+    vendor_id: cpu.vendor_id().to_string(),
+  })
 }
 
 fn get_mnt_info() -> Vec<MntInfo> {
@@ -76,7 +74,17 @@ fn get_uts_info() -> Option<UtsInfo> {
       release: uts.release().to_string_lossy().to_string(),
       version: uts.version().to_string_lossy().to_string(),
       machine: uts.machine().to_string_lossy().to_string(),
-      domainname: uts.domainname().to_string_lossy().to_string(),
+      domainname: {
+        #[cfg(target_os = "linux")]
+        {
+          Some(uts.domainname().to_string_lossy().to_string())
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+          None
+        }
+      },
     })
     .ok()
 }

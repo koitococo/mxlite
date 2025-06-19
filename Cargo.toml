@@ -75,8 +75,9 @@ futures = "0.3.31"
 tokio-rustls = { version = "0.26.2", features = [
   "ring",
 ], default-features = false }
-nix = { version = "0.29.0", features = ["feature", "user"] }
 
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29.0", features = ["feature", "signal", "user"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 sysinfo = { version = "0.34.1", features = [
@@ -85,5 +86,7 @@ sysinfo = { version = "0.34.1", features = [
   "linux-tmpfs",
 ] }
 
-[target.'cfg(unix)'.dependencies]
-nix = { version = "0.29.0", features = ["feature", "signal"] }
+[target.'cfg(target_os = "macos")'.dependencies]
+sysinfo = { version = "0.34.1", features = [
+  "serde",
+] }

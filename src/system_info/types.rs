@@ -75,7 +75,7 @@ pub struct UtsInfo {
   pub release: String,
   pub version: String,
   pub machine: String,
-  pub domainname: String,
+  pub domainname: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
