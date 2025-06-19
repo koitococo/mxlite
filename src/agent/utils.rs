@@ -6,35 +6,40 @@ use rand::Rng;
 use tokio::select;
 
 /// Get the machine UUID from the DMI table.
+/// **Only works on Linux**
 pub(crate) fn get_machine_id() -> Option<String> {
-  match get_machine_id_from_sysfs() {
-    Ok(uuid) => return Some(uuid),
-    Err(err) => {
-      error!("Failed to get machine id from sysfs: {err}");
+  #[cfg(target_os = "linux")]
+  {
+    match get_machine_id_from_sysfs() {
+      Ok(uuid) => return Some(uuid),
+      Err(err) => {
+        error!("Failed to get machine id from sysfs: {err}");
+      }
     }
-  }
-  match get_machine_id_from_dmi_entry() {
-    Ok(uuid) => return Some(uuid),
-    Err(err) => {
-      error!("Failed to get machine id from dmi entry: {err}");
+    match get_machine_id_from_dmi_entry() {
+      Ok(uuid) => return Some(uuid),
+      Err(err) => {
+        error!("Failed to get machine id from dmi entry: {err}");
+      }
     }
-  }
-  match get_machine_id_from_dmi_table() {
-    Ok(uuid) => return Some(uuid),
-    Err(err) => {
-      error!("Failed to get machine id from dmi table: {err}");
+    match get_machine_id_from_dmi_table() {
+      Ok(uuid) => return Some(uuid),
+      Err(err) => {
+        error!("Failed to get machine id from dmi table: {err}");
+      }
     }
-  }
-  match get_systemd_machine_id() {
-    Ok(uuid) => return Some(uuid),
-    Err(err) => {
-      error!("Failed to get machine id from systemd: {err}");
+    match get_systemd_machine_id() {
+      Ok(uuid) => return Some(uuid),
+      Err(err) => {
+        error!("Failed to get machine id from systemd: {err}");
+      }
     }
+    error!("Failed to get machine id from all sources");
   }
-  error!("Failed to get machine id from all sources");
   None
 }
 
+#[cfg(target_os = "linux")]
 fn get_machine_id_from_sysfs() -> Result<String> {
   info!("Reading machine id from sysfs");
   let mut fd = std_File::open("/sys/class/dmi/id/product_uuid")?;
@@ -44,6 +49,7 @@ fn get_machine_id_from_sysfs() -> Result<String> {
   Ok(uuid)
 }
 
+#[cfg(target_os = "linux")]
 fn get_machine_id_from_dmi_entry() -> Result<String> {
   info!("Reading machine id from dmi entry");
   let mut fd = std_File::open("/sys/firmware/dmi/entries/1-0/raw")?;
@@ -52,6 +58,7 @@ fn get_machine_id_from_dmi_entry() -> Result<String> {
   get_uuid_string_from_buf(&buf, 8)
 }
 
+#[cfg(target_os = "linux")]
 fn get_machine_id_from_dmi_table() -> Result<String> {
   info!("Reading machine id from dmi table");
   let mut fd = std_File::open("/sys/firmware/dmi/tables/DMI")?;
@@ -74,6 +81,7 @@ fn get_uuid_string_from_buf(buf: &[u8], offset: usize) -> Result<String> {
   Ok(format!("{p1:08x}-{p2:04x}-{p3:04x}-{p4:04x}-") + &p5.iter().map(|b| format!("{b:02x}")).collect::<String>())
 }
 
+#[cfg(target_os = "linux")]
 fn get_systemd_machine_id() -> Result<String> {
   info!("Reading machine id from systemd");
   let mut fd = std_File::open("/etc/machine-id")?;
@@ -97,6 +105,7 @@ pub(crate) fn get_random_uuid() -> String {
     &p5.iter().map(|b| format!("{b:02x}")).collect::<String>()
   )
 }
+
 pub(crate) fn random_str(len: usize) -> String {
   let mut rng = rand::rng();
   let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
