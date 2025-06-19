@@ -34,10 +34,10 @@ impl From<VecValue> for Vec<ValueType> {
   fn from(vec_value: VecValue) -> Self { vec_value.0 }
 }
 
-impl VecValue {
-  pub fn from_iter<I: IntoIterator<Item = impl Into<ValueType>>>(iter: I) -> Self {
-    VecValue(iter.into_iter().map(Into::into).collect())
-  }
+impl<VT> FromIterator<VT> for VecValue
+where VT: Into<ValueType>
+{
+  fn from_iter<I: IntoIterator<Item = VT>>(iter: I) -> Self { VecValue(iter.into_iter().map(Into::into).collect()) }
 }
 
 pub trait Invokable {

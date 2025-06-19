@@ -5,8 +5,8 @@ use crate::{
   protocol::messaging::{AgentResponse, ControllerRequest, ControllerRequestPayload, Message, PROTOCOL_VERSION},
   system_info::SystemInfo,
   utils::{
-    mailbox::{Mailbox, SimpleMailbox},
-    state::{AtomticStateStorage, StateStorage as _},
+    mq::{Mq, VecMq},
+    states::{AtomicStates, States as _},
   },
 };
 use anyhow::Result;
@@ -38,7 +38,7 @@ pub(crate) struct HostSession {
   pub(crate) session_id: String,
   tx: Sender<Message>,
   rx: Mutex<Receiver<Message>>,
-  tasks: SimpleMailbox<u64, TaskState>,
+  tasks: VecMq<u64, TaskState>,
   pub(crate) extra: ExtraInfo,
   pub(crate) notify: Notify,
 }
@@ -51,7 +51,7 @@ impl HostSession {
       session_id: extra.session_id.clone(),
       tx,
       rx: Mutex::new(rx),
-      tasks: SimpleMailbox::new(128),
+      tasks: VecMq::new(128),
       extra,
       notify: Notify::new(),
     }
@@ -87,10 +87,10 @@ impl HostSession {
   pub(crate) fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> { self.tasks.receive(&id) }
 }
 
-pub(crate) struct HostSessionStorage(AtomticStateStorage<String, HostSession>);
+pub(crate) struct HostSessionStorage(AtomicStates<String, HostSession>);
 
 impl HostSessionStorage {
-  pub(crate) fn new() -> Self { Self(AtomticStateStorage::new()) }
+  pub(crate) fn new() -> Self { Self(AtomicStates::new()) }
 
   pub(crate) fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>> {
     self

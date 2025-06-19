@@ -1,8 +1,8 @@
 use std::path::Path;
 
-use crate::{
-  hash::{self},
-  utils::state::{AtomticStateStorage, StateStorage as _},
+use crate::utils::{
+  hash,
+  states::{AtomicStates, States as _},
 };
 
 #[derive(Debug, Clone)]
@@ -21,10 +21,10 @@ pub(crate) enum MapItem {
   Dir(String),
 }
 
-pub(crate) struct FileMapStorage(AtomticStateStorage<String, MapItem>);
+pub(crate) struct FileMapStorage(AtomicStates<String, MapItem>);
 
 impl FileMapStorage {
-  pub(crate) fn new() -> Self { FileMapStorage(AtomticStateStorage::new()) }
+  pub(crate) fn new() -> Self { FileMapStorage(AtomicStates::new()) }
 
   pub(crate) fn add_file_map(&self, file_path: String, publish_name: String) -> Result<(), String> {
     let path = Path::new(&file_path);

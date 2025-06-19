@@ -4,7 +4,7 @@ use std::{
   sync::{Arc, RwLock},
 };
 
-pub trait StateStorage<Key, State> {
+pub trait States<Key, State> {
   fn new() -> Self;
   fn insert(&self, key: Key, item: State);
   fn get(&self, key: &Key) -> Option<Arc<State>>;
@@ -16,13 +16,13 @@ pub trait StateStorage<Key, State> {
 }
 
 #[derive(Clone)]
-pub struct AtomticStateStorage<Key, State> {
+pub struct AtomicStates<Key, State> {
   _inner: Arc<RwLock<BTreeMap<Key, Arc<State>>>>,
 }
 
-impl<Key: Ord + Clone + Debug, State> StateStorage<Key, State> for AtomticStateStorage<Key, State> {
+impl<Key: Ord + Clone + Debug, State> States<Key, State> for AtomicStates<Key, State> {
   fn new() -> Self {
-    AtomticStateStorage {
+    AtomicStates {
       _inner: Arc::new(RwLock::new(BTreeMap::new())),
     }
   }
@@ -86,7 +86,7 @@ impl<Key: Ord + Clone + Debug, State> StateStorage<Key, State> for AtomticStateS
   }
 }
 
-impl<Key: Ord + Clone, State> AtomticStateStorage<Key, State> {
+impl<Key: Ord + Clone, State> AtomicStates<Key, State> {
   pub fn try_insert_deferred_returning<F>(&self, key: Key, f: F) -> Option<Arc<State>>
   where F: FnOnce() -> State {
     let guard = self._inner.write();

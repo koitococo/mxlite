@@ -1,14 +1,16 @@
 use std::{fs::OpenOptions, io::Write as _};
 
-use crate::util_func::{download_file, upload_file};
-use anyhow::Result;
 use crate::{
-  hash::xxh3_for_file,
   protocol::messaging::{
-    ErrorResponse, FileDownloadParams, FileDownloadResult, FileOperationResponse, FileReadParams,
-    FileReadResult, FileTransferRequest, FileUploadParams, FileUploadResult, FileWriteParams, FileWriteResult,
+    ErrorResponse, FileDownloadParams, FileDownloadResult, FileOperationResponse, FileReadParams, FileReadResult,
+    FileTransferRequest, FileUploadParams, FileUploadResult, FileWriteParams, FileWriteResult,
+  },
+  utils::{
+    hash::xxh3_for_file,
+    util::{download_file, upload_file},
   },
 };
+use anyhow::Result;
 use log::warn;
 
 use super::RequestHandler;
