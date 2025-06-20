@@ -4,36 +4,48 @@
 
 ### Agent: Support Multiple Platforms
 
-> Status: 🏗️ Working
+> - Status: 🏗️ Working
+> - Priority: Normal
 
 Allow agent to work properly on multiple platforms
 
 #### macOS supports
 
-> Status: 🏗️ Working
+> - Status: 🏗️ Working
+> - Priority: Normal
 
 1. [ ] implement `system_info::collect_info` for macOS
 
 #### Windows supports
 
-> Status: 🗓️ Plan
+> - Status: 🗓️ Planned
+> - Priority: Lowest
 
 1. [ ] implement `system_info::collect_info` for Windows
 
 ### Controllplane: Lua Extensions
 
-> Status: 🗒️ Draft
+> - Status: 🗒️ Draft
+> - Priority: Low
 
 Allow controllplane to perform complex flow control, and reduce redundant usage of HTTP Api (ref: [EM-GeekLab/LLMOne](https://github.com/EM-GeekLab/LLMOne))
 
 ### Protocol: Binary Streaming
 
-> Status: 🗒️ Draft
+> - Status: 🗒️ Draft
+> - Priority: Lowest
 
 #### Port forwarding
 
-> Status: 🗒️ Draft
+> - Status: 🗒️ Draft
+> - Priority: Lowest
 
 #### File Upload / Download
 
-> Status: 🗒️ Draft
+> - Status: 🗒️ Draft
+> - Priority: Lowest
+
+### Security: Add bi-directional authentication
+
+> - Status: 🗒️ Draft
+> - Priority: High

@@ -3,6 +3,7 @@ use std::{hash::Hasher, process::Stdio};
 use anyhow::Result;
 use futures_util::StreamExt;
 use log::{error, info};
+use rand::Rng;
 use tokio::{fs::File, io::AsyncWriteExt, process::Command};
 use xxhash_rust::xxh3::Xxh3;
 
@@ -72,4 +73,18 @@ pub async fn execute_shell(cmd: &String, use_script_file: bool) -> Result<(i32, 
   } else {
     execute_command(&("sh".to_string()), vec!["-c".to_string(), cmd.to_string()]).await
   }
+}
+
+pub fn get_random_uuid() -> String {
+  let p5: [u8; 6] = rand::random();
+  format!(
+    "00000000-0000-0000-0000-{}",
+    &p5.iter().map(|b| format!("{b:02x}")).collect::<String>()
+  )
+}
+
+pub fn random_str(len: usize) -> String {
+  let mut rng = rand::rng();
+  let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  (0..len).map(|_| chars.chars().nth(rng.random_range(0..chars.len())).unwrap()).collect()
 }

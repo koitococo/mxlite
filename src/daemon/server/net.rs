@@ -37,7 +37,10 @@ pub(super) async fn handle_ws(
   info!("WebSocket connection with {socket_info:?}");
   let ct = app.cancel_signal.child_token();
   match handle_ws_inner(app, socket_info, headers, ws, ct).await {
-    Ok(ws) => ws,
+    Ok(mut ws) => {
+      // ws.headers_mut().insert("X-Custom-Header", "CustomValue".parse().unwrap());
+      ws
+    },
     Err(e) => {
       error!("Failed to handle WebSocket connection: {e}");
       (StatusCode::BAD_REQUEST, "Bad Request").into_response()

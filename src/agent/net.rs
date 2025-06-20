@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use super::cli::StartupArgs;
 use crate::{
   discovery::discover_controller_once,
   protocol::{
@@ -8,6 +9,7 @@ use crate::{
   },
   system_info::{self},
 };
+
 use tokio::{
   net::TcpStream,
   select,
@@ -86,11 +88,9 @@ async fn discover_controller() -> Vec<Url> {
   }
 }
 
-pub(crate) async fn handle_ws_url(
-  env_ws_url: Option<String>, host_id: String, session_id: String, envs: Vec<String>,
-) -> Result<bool> {
+pub(crate) async fn handle_ws_url(args: StartupArgs) -> Result<bool> {
   loop {
-    let ws_url: Url = if let Some(env_ws_url) = env_ws_url.as_ref() {
+    let ws_url: Url = if let Some(env_ws_url) = args.env_ws_url.as_ref() {
       info!("Using controller URL from environment variable: {env_ws_url}");
       Url::from_str(env_ws_url.as_str()).unwrap()
     } else {
@@ -117,9 +117,9 @@ pub(crate) async fn handle_ws_url(
       (ConnectHandshake {
         version: PROTOCOL_VERSION,
         controller_url: ws_url,
-        host_id: host_id.clone(),
-        session_id: session_id.clone(),
-        envs: envs.clone(),
+        host_id: args.host_id.clone(),
+        session_id: args.session_id.clone(),
+        envs: args.envs.clone(),
         system_info: system_info::collect_info(),
       })
       .to_string()
@@ -129,7 +129,10 @@ pub(crate) async fn handle_ws_url(
     let mut retry = 0;
     while retry < 5 {
       match connect_async_with_config(req.clone(), Some(WebSocketConfig { ..Default::default() }), false).await {
-        Ok((ws, _)) => {
+        Ok((ws, resp)) => {
+          // resp.headers().iter().for_each(|(k, v)| {
+          //   info!("Response header: {}: {}", k, v.to_str().unwrap_or_default());
+          // });
           info!("Connected to controller");
           retry = 0;
           match handle_conn(ws).await {

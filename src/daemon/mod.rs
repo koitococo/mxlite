@@ -1,13 +1,12 @@
 use anyhow::Result;
 use clap::Parser;
-use cert::get_cert_from_file;
+use crate::utils::cert::get_cert_from_file;
 use log::{info, warn};
 
 pub mod discovery;
 pub mod script;
 pub mod server;
 pub mod states;
-pub mod cert;
 
 #[derive(Parser, Debug)]
 #[command(version = crate::VERSION)]

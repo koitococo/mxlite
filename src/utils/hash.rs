@@ -2,7 +2,7 @@ use std::{hash::Hasher, io::Error};
 use thiserror::Error;
 
 use base16ct::lower;
-use digest::DynDigest;
+use digest::{Digest, DynDigest};
 use tokio::{fs::File, io::AsyncReadExt};
 use xxhash_rust::xxh3::Xxh3;
 
@@ -63,22 +63,22 @@ pub async fn digest_for_file(path: &str, mut hasher: Box<dyn DynDigest + Send + 
 
 /// MD5 hash for a file
 pub async fn md5_for_file(path: &str) -> Result<String, HashError> {
-  digest_for_file(path, Box::new(<md5::Md5 as digest::Digest>::new())).await
+  digest_for_file(path, Box::new(<md5::Md5 as Digest>::new())).await
 }
 
 /// SHA1 hash for a file
 pub async fn sha1_for_file(path: &str) -> Result<String, HashError> {
-  digest_for_file(path, Box::new(<sha1::Sha1 as digest::Digest>::new())).await
+  digest_for_file(path, Box::new(<sha1::Sha1 as Digest>::new())).await
 }
 
 /// SHA2-256 hash for a file
-pub async fn sha256_for_file(path: &str) -> Result<String, HashError> {
-  digest_for_file(path, Box::new(<sha2::Sha256 as digest::Digest>::new())).await
+pub async fn sha2_256_for_file(path: &str) -> Result<String, HashError> {
+  digest_for_file(path, Box::new(<sha2::Sha256 as Digest>::new())).await
 }
 
 /// SHA3-512 hash for a file
-pub async fn sha512_for_file(path: &str) -> Result<String, HashError> {
-  digest_for_file(path, Box::new(<sha3::Sha3_512 as digest::Digest>::new())).await
+pub async fn sha3_512_for_file(path: &str) -> Result<String, HashError> {
+  digest_for_file(path, Box::new(<sha3::Sha3_512 as Digest>::new())).await
 }
 
 pub async fn digests_for_file(
@@ -114,21 +114,21 @@ pub async fn digests_for_file(
   Ok(hashes)
 }
 
-pub async fn sha_for_file(
-  path: &str, calc_md5: bool, calc_sha1: bool, calc_sha256: bool, calc_sha512: bool,
+pub async fn hashes_for_file(
+  path: &str, calc_md5: bool, calc_sha1: bool, calc_sha256: bool, calc_sha3_512: bool,
 ) -> Result<(Option<String>, Option<String>, Option<String>, Option<String>), HashError> {
   let mut hashers: Vec<Box<dyn DynDigest + Send + Unpin>> = Vec::new();
   if calc_md5 {
-    hashers.push(Box::new(<md5::Md5 as md5::Digest>::new()));
+    hashers.push(Box::new(<md5::Md5 as Digest>::new()));
   }
   if calc_sha1 {
-    hashers.push(Box::new(<sha1::Sha1 as sha1::Digest>::new()));
+    hashers.push(Box::new(<sha1::Sha1 as Digest>::new()));
   }
   if calc_sha256 {
-    hashers.push(Box::new(<sha2::Sha256 as sha2::Digest>::new()));
+    hashers.push(Box::new(<sha2::Sha256 as Digest>::new()));
   }
-  if calc_sha512 {
-    hashers.push(Box::new(<sha3::Sha3_512 as sha3::Digest>::new()));
+  if calc_sha3_512 {
+    hashers.push(Box::new(<sha3::Sha3_512 as Digest>::new()));
   }
   let mut hashes = digests_for_file(path, hashers).await?;
   let mut result: (Option<String>, Option<String>, Option<String>, Option<String>) = (None, None, None, None);
@@ -144,7 +144,7 @@ pub async fn sha_for_file(
     let hash = hashes.remove(0);
     result.1 = Some(hash);
   }
-  if calc_sha512 {
+  if calc_sha3_512 {
     let hash = hashes.remove(0);
     result.2 = Some(hash);
   }

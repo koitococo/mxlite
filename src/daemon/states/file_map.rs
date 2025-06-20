@@ -91,7 +91,7 @@ impl FileMapStorage {
         let calc_sha256 = ensure_sha256 && new_inner.sha256.is_none();
         let calc_sha512 = ensure_sha512 && new_inner.sha512.is_none();
         if let Ok((md5, sha1, sha256, sha512)) =
-          hash::sha_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await
+          hash::hashes_for_file(&new_inner.file_path, calc_md5, calc_sha1, calc_sha256, calc_sha512).await
         {
           if calc_md5 {
             new_inner.md5 = md5;
