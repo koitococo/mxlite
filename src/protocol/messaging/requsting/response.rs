@@ -89,14 +89,14 @@ impl From<ErrorResponse> for AgentResponsePayload {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Status {
-  Ok, // Task finished without segmentation
-  Error, // Task failed without segmentation
-  PartialOk(u32), // Task returned a partial result
-  PartialFail(u32), // Task threw an ignorable error
-  Finished(u32), // Task finished without error
+  Ok,                     // Task finished without segmentation
+  Error,                  // Task failed without segmentation
+  PartialOk(u32),         // Task returned a partial result
+  PartialFail(u32),       // Task threw an ignorable error
+  Finished(u32),          // Task finished without error
   FinishedWithError(u32), // Task finished with ignorable error
-  FailFast(u32), // Task threw an error
-  NotAccepted, // Task was not accepted by executor
+  FailFast(u32),          // Task threw an error
+  NotAccepted,            // Task was not accepted by executor
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

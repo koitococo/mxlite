@@ -4,6 +4,10 @@ use std::{
   time::{Duration, Instant},
 };
 
+use crate::protocol::{
+  handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+  messaging::Message as ProtocolMessage,
+};
 use anyhow::{Result, anyhow};
 use axum::{
   extract::{
@@ -13,10 +17,6 @@ use axum::{
   },
   http::{HeaderMap, StatusCode},
   response::{IntoResponse, Response},
-};
-use crate::protocol::{
-  handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
-  messaging::Message as ProtocolMessage,
 };
 use futures_util::SinkExt;
 use log::{debug, error, info, warn};
@@ -40,7 +40,7 @@ pub(super) async fn handle_ws(
     Ok(mut ws) => {
       // ws.headers_mut().insert("X-Custom-Header", "CustomValue".parse().unwrap());
       ws
-    },
+    }
     Err(e) => {
       error!("Failed to handle WebSocket connection: {e}");
       (StatusCode::BAD_REQUEST, "Bad Request").into_response()

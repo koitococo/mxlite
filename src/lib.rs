@@ -2,9 +2,9 @@
 pub mod discovery;
 pub mod logger;
 pub mod protocol;
+pub mod script;
 pub mod system_info;
 pub mod utils;
-pub mod script;
 
 pub mod agent;
 pub mod daemon;

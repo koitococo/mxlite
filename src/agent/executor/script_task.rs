@@ -10,7 +10,7 @@ const ERR_SCRIPT_EVAL: &str = "ERR_SCRIPT_EVAL";
 impl RequestHandler<ScriptEvalResponse> for ScriptEvalRequest {
   async fn handle(&self) -> Result<ScriptEvalResponse, ErrorResponse> {
     let Ok(ctx) = crate::script::ExecutorContext::try_new() else {
-    return Err(ErrorResponse {
+      return Err(ErrorResponse {
         code: ERR_SCRIPT_CONTEXT.to_string(),
         message: "Failed to create script execution context".to_string(),
       });

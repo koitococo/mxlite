@@ -38,9 +38,9 @@ use crate::daemon::{
 
 mod api;
 mod collector;
+mod files;
 mod net;
 mod utils;
-mod files;
 
 struct TlsListener {
   listener: TcpListener,

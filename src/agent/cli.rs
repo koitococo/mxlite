@@ -9,7 +9,7 @@ use log::{error, info, warn};
 #[command(version = crate::VERSION)]
 struct Cli {
   /// Connect to controller with Websocket URL. This option will disable discovery.
-  /// 
+  ///
   /// Url should be in the format of `ws://<host>:<port>` or `wss://<host>:<port>`.
   #[clap(short, long, env = "MXA_WS_URL")]
   ws_url: Option<String>,
@@ -31,9 +31,9 @@ struct Cli {
   private_key: Option<String>,
 
   /// Enforce authentication of remote controller.
-  /// 
-  /// If set to true, agent will only connect to controllers that are in the trusted controllers list. 
-  /// 
+  ///
+  /// If set to true, agent will only connect to controllers that are in the trusted controllers list.
+  ///
   /// If set to false, agent will connect to any controller, but show a warning if the controller is not in the trusted controllers list.
   #[clap(long, env = "MXA_ENFORCE_AUTH")]
   enforce_auth: bool,
@@ -41,7 +41,7 @@ struct Cli {
   /// List of trusted controllers.
   /// Each controller should be sha256 hash of controller's public key.
   #[clap(long, env = "MXA_TRUSTED_CONTROLLERS")]
-  trusted_controllers: Vec<String>
+  trusted_controllers: Vec<String>,
 }
 
 #[derive(Debug, Clone)]

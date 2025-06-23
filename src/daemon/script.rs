@@ -8,7 +8,5 @@ impl ExecutorContext {
     Ok(ExecutorContext { ctx })
   }
 
-  pub async fn exec_async(&self, script: &str) -> anyhow::Result<()> {
-    self.ctx.exec_async(script).await
-  }
+  pub async fn exec_async(&self, script: &str) -> anyhow::Result<()> { self.ctx.exec_async(script).await }
 }

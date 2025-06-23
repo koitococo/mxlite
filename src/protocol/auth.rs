@@ -2,11 +2,9 @@ use anyhow::Result;
 use base64::Engine;
 use bytes::{Buf as _, BufMut as _, Bytes, BytesMut};
 use log::error;
-use ring_compat::{
-  signature::{
-    Signer, Verifier,
-    ed25519::{Signature, SigningKey, VerifyingKey},
-  },
+use ring_compat::signature::{
+  Signer, Verifier,
+  ed25519::{Signature, SigningKey, VerifyingKey},
 };
 
 pub const PROTOCOL_REV: u32 = 1;
@@ -97,7 +95,8 @@ impl AuthRequest {
   }
 
   pub fn decode(encoded: &str) -> Result<Self> {
-    let decoded = base64::engine::general_purpose::STANDARD.decode(encoded)
+    let decoded = base64::engine::general_purpose::STANDARD
+      .decode(encoded)
       .map_err(|e| anyhow::anyhow!("Failed to decode auth request: {}", e))?;
     if decoded.len() != 4 + 8 + 16 + 32 + 64 {
       return Err(anyhow::anyhow!("Invalid auth request length"));
@@ -105,7 +104,7 @@ impl AuthRequest {
     let mut buf = Bytes::from(decoded);
     let rev = buf.get_u32_le();
     let timestamp = buf.get_u64_le();
-    let mut nonce = [0u8; 16] ;
+    let mut nonce = [0u8; 16];
     buf.split_to(16).copy_to_slice(&mut nonce);
     let mut pubkey = [0u8; 32];
     buf.split_to(32).copy_to_slice(&mut pubkey);
@@ -121,9 +120,7 @@ impl AuthRequest {
     })
   }
 
-  pub fn encoded_pubkey(&self) -> String {
-    base64::engine::general_purpose::STANDARD.encode(&self.pubkey)
-  }
+  pub fn encoded_pubkey(&self) -> String { base64::engine::general_purpose::STANDARD.encode(&self.pubkey) }
 }
 
 #[cfg(test)]

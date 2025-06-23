@@ -1,6 +1,6 @@
+use crate::utils::cert::get_cert_from_file;
 use anyhow::Result;
 use clap::Parser;
-use crate::utils::cert::get_cert_from_file;
 use log::{info, warn};
 
 pub mod discovery;

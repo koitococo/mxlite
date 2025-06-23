@@ -1,4 +1,10 @@
-use crate::{daemon::{server::api::{ERR_REASON_INTERNAL_ERROR, ERR_REASON_SESSION_NOT_FOUND}, states::SharedAppState}, protocol::messaging::ControllerRequestPayload};
+use crate::{
+  daemon::{
+    server::api::{ERR_REASON_INTERNAL_ERROR, ERR_REASON_SESSION_NOT_FOUND},
+    states::SharedAppState,
+  },
+  protocol::messaging::ControllerRequestPayload,
+};
 use axum::{Json, http::StatusCode};
 use log::error;
 use serde::Serialize;
