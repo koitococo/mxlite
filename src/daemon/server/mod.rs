@@ -39,8 +39,8 @@ use crate::daemon::{
 mod api;
 mod collector;
 mod net;
-mod srv;
 mod utils;
+mod files;
 
 struct TlsListener {
   listener: TcpListener,
@@ -114,7 +114,7 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
   let mut route = Router::new()
     .route("/ws", get(self::net::handle_ws).head(async || StatusCode::OK))
     .nest("/api", self::api::build(app.clone()))
-    .nest("/srv", self::srv::build(app.clone()));
+    .nest("/files", self::files::build(app.clone()));
   if let Some(static_path) = config.static_path {
     route = route.nest_service("/static", ServeDir::new(static_path));
   }
