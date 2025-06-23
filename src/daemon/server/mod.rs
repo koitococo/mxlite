@@ -36,6 +36,8 @@ use crate::daemon::{
   states::{AppState, SharedAppState},
 };
 
+use crate::utils::signal::ctrl_c;
+
 mod api;
 mod collector;
 mod files;
@@ -128,8 +130,7 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
         _ = halt_http.cancelled() => {
             info!("Server shutting down");
         }
-        _ = tokio::signal::ctrl_c() => {
-            info!("Received Ctrl-C, shutting down");
+        _ = ctrl_c() => {
             halt_signal2.cancel();
             halt_signal2.cancelled().await;
         }
@@ -151,7 +152,7 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
           _ = halt_https.cancelled() => {
               info!("HTTPS Server shutting down");
           }
-          _ = tokio::signal::ctrl_c() => {
+          _ = ctrl_c() => {
               info!("Received Ctrl-C, shutting down");
               halt_signal2.cancel();
               halt_signal2.cancelled().await;

@@ -17,6 +17,7 @@ use tokio::{
 };
 use url::Url;
 
+use crate::utils::signal::ctrl_c;
 use anyhow::{Result, anyhow};
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info, trace, warn};
@@ -97,8 +98,8 @@ pub(crate) async fn handle_ws_url(args: StartupArgs) -> Result<bool> {
       info!("Discovering controller URL...");
       let controllers = select! {
         r = discover_controller() => r,
-        _ = tokio::signal::ctrl_c() => {
-          info!("Received Ctrl-C, canceling discovery and exit");
+        _ = ctrl_c() => {
+          info!("Canceling discovery and exit");
           return Ok(true);
         }
       };
@@ -176,8 +177,8 @@ async fn handle_conn(ws: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Result<B
   debug!("Websocket connected to controller. Begin to handle message loop");
   loop {
     select! {
-      _ = tokio::signal::ctrl_c() => {
-        info!("Received Ctrl-C, shutting down websocket connection");
+      _ = ctrl_c() => {
+        info!("Shutting down websocket connection");
         tx.send(Message::Close(None)).await?;
         break Ok(BreakLoopReason::Shutdown);
       }

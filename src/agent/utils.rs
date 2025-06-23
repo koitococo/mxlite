@@ -4,6 +4,8 @@ use anyhow::Result;
 use log::{error, info};
 use tokio::select;
 
+use crate::utils::signal::ctrl_c;
+
 /// Get the machine UUID from the DMI table.
 /// **Only works on Linux**
 pub(crate) fn get_machine_id() -> Option<String> {
@@ -97,14 +99,16 @@ fn get_systemd_machine_id() -> Result<String> {
   ))
 }
 
-pub(crate) async fn safe_sleep(duration: u64) -> bool {
+/// Sleep for a given duration, but allow the sleep to be interrupted by a Ctrl-C signal.
+/// 
+/// Returns `true` if the sleep was interrupted by Ctrl-C, `false` otherwise.
+pub(super) async fn safe_sleep(duration: u64) -> bool {
   select! {
-      _ = tokio::time::sleep(std::time::Duration::from_millis(duration)) => {
-          false
-      },
-      _ = tokio::signal::ctrl_c() => {
-          info!("Received Ctrl-C, shutting down");
-          true
-      }
+    _ = tokio::time::sleep(std::time::Duration::from_millis(duration)) => {
+      false
+    },
+    _ = ctrl_c() => {
+      true
+    }
   }
 }
