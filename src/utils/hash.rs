@@ -115,7 +115,7 @@ pub async fn digests_for_file(
 }
 
 pub async fn hashes_for_file(
-  path: &str, calc_md5: bool, calc_sha1: bool, calc_sha256: bool, calc_sha3_512: bool,
+  path: &str, calc_md5: bool, calc_sha1: bool, calc_sha2_256: bool, calc_sha3_512: bool,
 ) -> Result<(Option<String>, Option<String>, Option<String>, Option<String>), HashError> {
   let mut hashers: Vec<Box<dyn DynDigest + Send + Unpin>> = Vec::new();
   if calc_md5 {
@@ -124,7 +124,7 @@ pub async fn hashes_for_file(
   if calc_sha1 {
     hashers.push(Box::new(<sha1::Sha1 as Digest>::new()));
   }
-  if calc_sha256 {
+  if calc_sha2_256 {
     hashers.push(Box::new(<sha2::Sha256 as Digest>::new()));
   }
   if calc_sha3_512 {
@@ -138,15 +138,15 @@ pub async fn hashes_for_file(
   }
   if calc_sha1 {
     let hash = hashes.remove(0);
-    result.0 = Some(hash);
-  }
-  if calc_sha256 {
-    let hash = hashes.remove(0);
     result.1 = Some(hash);
+  }
+  if calc_sha2_256 {
+    let hash = hashes.remove(0);
+    result.2 = Some(hash);
   }
   if calc_sha3_512 {
     let hash = hashes.remove(0);
-    result.2 = Some(hash);
+    result.3 = Some(hash);
   }
   Ok(result)
 }
