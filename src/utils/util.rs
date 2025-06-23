@@ -60,6 +60,7 @@ pub async fn execute_command(cmd: &String, args: Vec<String>) -> Result<(i32, St
 #[inline]
 async fn execute_script(cmd: &String) -> Result<(i32, String, String)> {
   info!("Executing script: {cmd}");
+  // FIXME: should not use a hardcoded path
   const TMP_SCRIPT_PATH: &str = "/tmp/mxa-script.sh";
   let mut file = File::create(TMP_SCRIPT_PATH).await?;
   file.write_all(cmd.as_bytes()).await?;
@@ -67,6 +68,11 @@ async fn execute_script(cmd: &String) -> Result<(i32, String, String)> {
   execute_command(&("sh".to_string()), vec![TMP_SCRIPT_PATH.to_string()]).await
 }
 
+/// Execute a shell command or script file with `sh`.
+/// 
+/// On most Linux distributions, the `sh` command is a symlink to `bash`.
+/// On macOS, it is a symlink to `bash` 3.0 version.
+/// **Should NOT work on Windows**
 pub async fn execute_shell(cmd: &String, use_script_file: bool) -> Result<(i32, String, String)> {
   if use_script_file {
     execute_script(cmd).await
@@ -75,6 +81,7 @@ pub async fn execute_shell(cmd: &String, use_script_file: bool) -> Result<(i32, 
   }
 }
 
+/// Generate a random UUID in the format `00000000-0000-0000-0000-xxxxxxxxxxxx` where `x` is a random hex digit.
 pub fn get_random_uuid() -> String {
   let p5: [u8; 6] = rand::random();
   format!(
@@ -83,6 +90,7 @@ pub fn get_random_uuid() -> String {
   )
 }
 
+/// Generate a random string of the given length using alphanumeric characters.
 pub fn random_str(len: usize) -> String {
   let mut rng = rand::rng();
   let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

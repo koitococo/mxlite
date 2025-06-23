@@ -8,7 +8,7 @@ use crate::utils::signal::ctrl_c;
 
 /// Get the machine UUID from the DMI table.
 /// **Only works on Linux**
-pub(crate) fn get_machine_id() -> Option<String> {
+pub(super) fn get_machine_id() -> Option<String> {
   #[cfg(target_os = "linux")]
   {
     match get_machine_id_from_sysfs() {
@@ -41,6 +41,7 @@ pub(crate) fn get_machine_id() -> Option<String> {
 }
 
 #[cfg(target_os = "linux")]
+/// Get the machine ID from the sysfs entry for product UUID. Requires a newer Linux kernel.
 fn get_machine_id_from_sysfs() -> Result<String> {
   info!("Reading machine id from sysfs");
   let mut fd = std_File::open("/sys/class/dmi/id/product_uuid")?;
@@ -51,6 +52,7 @@ fn get_machine_id_from_sysfs() -> Result<String> {
 }
 
 #[cfg(target_os = "linux")]
+/// Get the machine ID from the DMI entry file. Requires a newer Linux kernel
 fn get_machine_id_from_dmi_entry() -> Result<String> {
   info!("Reading machine id from dmi entry");
   let mut fd = std_File::open("/sys/firmware/dmi/entries/1-0/raw")?;
@@ -60,6 +62,7 @@ fn get_machine_id_from_dmi_entry() -> Result<String> {
 }
 
 #[cfg(target_os = "linux")]
+/// Get the machine ID from the DMI table.
 fn get_machine_id_from_dmi_table() -> Result<String> {
   info!("Reading machine id from dmi table");
   let mut fd = std_File::open("/sys/firmware/dmi/tables/DMI")?;
@@ -73,6 +76,7 @@ fn get_machine_id_from_dmi_table() -> Result<String> {
   get_uuid_string_from_buf(&buf, offset + 9)
 }
 
+/// Get a UUID string from a byte buffer at a given offset.
 fn get_uuid_string_from_buf(buf: &[u8], offset: usize) -> Result<String> {
   let p1 = u32::from_le_bytes(buf[offset..offset + 4].try_into()?);
   let p2 = u16::from_le_bytes(buf[offset + 4..offset + 6].try_into()?);
@@ -83,6 +87,7 @@ fn get_uuid_string_from_buf(buf: &[u8], offset: usize) -> Result<String> {
 }
 
 #[cfg(target_os = "linux")]
+/// Get the machine ID from systemd's machine-id file. Typically located at `/etc/machine-id``
 fn get_systemd_machine_id() -> Result<String> {
   info!("Reading machine id from systemd");
   let mut fd = std_File::open("/etc/machine-id")?;

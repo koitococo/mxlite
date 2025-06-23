@@ -6,6 +6,11 @@ use digest::{Digest, DynDigest};
 use tokio::{fs::File, io::AsyncReadExt};
 use xxhash_rust::xxh3::Xxh3;
 
+/// Calculate hash for a file at the given path. Uses `std::hash::Hasher` trait.
+/// 
+/// If the file is smaller than 1MB, it reads the whole file into memory.
+/// 
+/// Returns the hash in base16 format.
 pub async fn hasher_for_file<H: Hasher>(path: &str, hasher: &mut H) -> Result<String, Error> {
   let mut fd = File::open(path).await?;
   // for files smaller than 1MB we can read the whole file into memory
@@ -26,6 +31,9 @@ pub async fn hasher_for_file<H: Hasher>(path: &str, hasher: &mut H) -> Result<St
   Ok(format!("{:x}", hasher.finish()))
 }
 
+/// Calculate xxh3 hash for a file at the given path.
+/// 
+/// Returns the hash in base16 format.
 pub async fn xxh3_for_file(path: &str) -> Result<String, Error> {
   let mut hasher = Xxh3::new();
   hasher_for_file(path, &mut hasher).await
@@ -39,6 +47,11 @@ pub enum HashError {
   IoError(#[from] std::io::Error),
 }
 
+/// Calculate a digest for a file at the given path using the provided hasher. Uses `digest::Digest` trait.
+/// 
+/// If the file is smaller than 1MB, it reads the whole file into memory.
+/// 
+/// Returns the hash in base16 format.
 pub async fn digest_for_file(path: &str, mut hasher: Box<dyn DynDigest + Send + Unpin>) -> Result<String, HashError> {
   let mut fd = File::open(path).await?;
   // for files smaller than 1MB we can read the whole file into memory
@@ -61,26 +74,37 @@ pub async fn digest_for_file(path: &str, mut hasher: Box<dyn DynDigest + Send + 
   Ok(lower::encode_str(&hash, buf.as_mut_slice()).map_err(HashError::Base16Error)?.to_string())
 }
 
-/// MD5 hash for a file
+/// Calculate MD5 hash for a file at the given path.
+/// 
+/// Returns the hash in base16 format.
 pub async fn md5_for_file(path: &str) -> Result<String, HashError> {
   digest_for_file(path, Box::new(<md5::Md5 as Digest>::new())).await
 }
 
-/// SHA1 hash for a file
+/// Calculate SHA1 hash for a file at the given path.
+/// 
+/// Returns the hash in base16 format.
 pub async fn sha1_for_file(path: &str) -> Result<String, HashError> {
   digest_for_file(path, Box::new(<sha1::Sha1 as Digest>::new())).await
 }
 
-/// SHA2-256 hash for a file
+/// Calculate SHA2-256 hash for a file at the given path.
+/// 
+/// Returns the hash in base16 format.
 pub async fn sha2_256_for_file(path: &str) -> Result<String, HashError> {
   digest_for_file(path, Box::new(<sha2::Sha256 as Digest>::new())).await
 }
 
-/// SHA3-512 hash for a file
+/// Calculate SHA3-512 hash for a file at the given path.
+/// 
+/// Returns the hash in base16 format.
 pub async fn sha3_512_for_file(path: &str) -> Result<String, HashError> {
   digest_for_file(path, Box::new(<sha3::Sha3_512 as Digest>::new())).await
 }
 
+/// Calculate digests for a file at the given path using the provided hashers.
+/// 
+/// Returns a vector of hashes in base16 format.
 pub async fn digests_for_file(
   path: &str, mut hashers: Vec<Box<dyn DynDigest + Send + Unpin>>,
 ) -> Result<Vec<String>, HashError> {
@@ -114,6 +138,8 @@ pub async fn digests_for_file(
   Ok(hashes)
 }
 
+
+/// Calculate multiple hashes for a file at the given path.
 pub async fn hashes_for_file(
   path: &str, calc_md5: bool, calc_sha1: bool, calc_sha2_256: bool, calc_sha3_512: bool,
 ) -> Result<(Option<String>, Option<String>, Option<String>, Option<String>), HashError> {

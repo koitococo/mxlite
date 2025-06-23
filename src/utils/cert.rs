@@ -9,7 +9,7 @@ use time::OffsetDateTime;
 
 /// Generates a self-signed CA certificate and its private key.
 /// Returns the PEM encoded certificate and private key.
-pub(crate) fn generate_ca_cert() -> Result<(String, String)> {
+pub fn generate_ca_cert() -> Result<(String, String)> {
   let mut params = CertificateParams::default();
   params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
   params.key_usages = vec![KeyUsagePurpose::KeyCertSign, KeyUsagePurpose::CrlSign];
@@ -33,14 +33,11 @@ pub(crate) fn generate_ca_cert() -> Result<(String, String)> {
 /// Generates a TLS server certificate signed by the provided CA.
 /// Takes the CA certificate PEM, CA private key PEM, and subject alternative names.
 /// Returns the PEM encoded server certificate and its private key.
-pub(crate) fn generate_signed_cert(
+pub fn generate_signed_cert(
   ca_cert_pem: &str, ca_key_pem: &str, subject_alt_names: Vec<String>,
 ) -> Result<(String, String)> {
   let ca_params = CertificateParams::from_ca_cert_pem(ca_cert_pem)?;
   let mut params = ca_params.clone();
-  // let ca_cert = rustls_pemfile::certs(&mut ca_cert_pem.as_bytes())
-  //   .next()
-  //   .ok_or_else(|| anyhow::anyhow!("No certificate found in CA PEM"))??;
 
   let ca_key_pair = KeyPair::from_pem(ca_key_pem)?;
 
@@ -68,7 +65,11 @@ pub(crate) fn generate_signed_cert(
   Ok((cert_pem, key_pem))
 }
 
-pub(crate) fn get_cert_from_file(
+/// Reads a certificate and private key from the specified file paths.
+/// 
+/// If the files do not exist, it generates a self-signed certificate using the provided CA certificate and key paths.
+/// If the CA certificate and key paths are not provided, it returns an error.
+pub fn get_cert_from_file(
   cert_path: Option<String>, key_path: Option<String>, ca_cert_path: Option<String>, ca_key_path: Option<String>,
   allow_self_signed: bool,
 ) -> Result<(String, String)> {
