@@ -1,7 +1,7 @@
 use crate::{
   daemon::{
     server::api::{ERR_REASON_INTERNAL_ERROR, ERR_REASON_SESSION_NOT_FOUND},
-    states::SharedAppState,
+    states::{host_session::HostSessionStorageExt as _, SharedAppState},
   },
   protocol::messaging::ControllerRequestPayload,
 };

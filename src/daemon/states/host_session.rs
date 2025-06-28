@@ -19,32 +19,32 @@ use tokio::sync::{
 use url::Url;
 
 #[derive(Clone)]
-pub(crate) enum TaskState {
+pub enum TaskState {
   Pending,
   Finished(AgentResponse),
 }
 
 #[derive(Serialize, Debug, Clone)]
-pub(crate) struct ExtraInfo {
-  pub(crate) socket_info: SocketConnectInfo,
-  pub(crate) controller_url: Url,
-  pub(crate) system_info: SystemInfo,
-  pub(crate) envs: Vec<String>,
-  pub(crate) session_id: String,
+pub struct ExtraInfo {
+  pub socket_info: SocketConnectInfo,
+  pub controller_url: Url,
+  pub system_info: SystemInfo,
+  pub envs: Vec<String>,
+  pub session_id: String,
 }
 
-pub(crate) struct HostSession {
-  pub(crate) host_id: String,
-  pub(crate) session_id: String,
+pub struct HostSession {
+  pub host_id: String,
+  pub session_id: String,
   tx: Sender<Message>,
   rx: Mutex<Receiver<Message>>,
   tasks: VecMq<u64, TaskState>,
-  pub(crate) extra: ExtraInfo,
-  pub(crate) notify: Notify,
+  pub extra: ExtraInfo,
+  pub notify: Notify,
 }
 
 impl HostSession {
-  pub(crate) fn new(host_id: String, extra: ExtraInfo) -> Self {
+  pub fn new(host_id: String, extra: ExtraInfo) -> Self {
     let (tx, rx) = mpsc::channel(32);
     HostSession {
       host_id,
@@ -87,27 +87,21 @@ impl HostSession {
   pub(crate) fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> { self.tasks.receive(&id) }
 }
 
-pub(crate) struct HostSessionStorage(AtomicStates<String, HostSession>);
+pub(crate) type HostSessionStorage = AtomicStates<String, HostSession>;
+pub(crate) trait HostSessionStorageExt {
+  fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>>;
+  async fn send_req(&self, id: &String, req: ControllerRequestPayload) -> Option<Result<u64, SendError<Message>>>;
+  async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>>;
+  async fn list_all_tasks(&self, id: &String) -> Vec<u64>;
+}
 
-impl HostSessionStorage {
-  pub(crate) fn new() -> Self { Self(AtomicStates::new()) }
-
-  pub(crate) fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>> {
-    self
-      .0
-      .try_insert_deferred_returning(host_id.clone(), || HostSession::new(host_id.to_string(), extra))
+impl HostSessionStorageExt for HostSessionStorage {
+  fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>> {
+    self.try_insert_deferred_returning(host_id.clone(), || HostSession::new(host_id.to_string(), extra))
   }
 
-  pub(crate) fn remove(&self, id: &String) { self.0.remove(id); }
-
-  pub(crate) fn list(&self) -> Vec<String> { self.0.list() }
-
-  pub(crate) fn get(&self, id: &String) -> Option<Arc<HostSession>> { self.0.get(id) }
-
-  pub(crate) async fn send_req(
-    &self, id: &String, req: ControllerRequestPayload,
-  ) -> Option<Result<u64, SendError<Message>>> {
-    if let Some(session) = self.0.get(id) {
+  async fn send_req(&self, id: &String, req: ControllerRequestPayload) -> Option<Result<u64, SendError<Message>>> {
+    if let Some(session) = self.get(id) {
       debug!("Sending request to session: {}", session.host_id);
       let task_id = session.new_task();
       if let Err(e) = session
@@ -127,12 +121,12 @@ impl HostSessionStorage {
     }
   }
 
-  pub(crate) async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>> {
-    self.0.get(id).map(|session| session.get_task_state(task_id).map(|task| task.as_ref().clone()))
+  async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>> {
+    self.get(id).map(|session| session.get_task_state(task_id).map(|task| task.as_ref().clone()))
   }
 
-  pub(crate) async fn list_all_tasks(&self, id: &String) -> Vec<u64> {
-    if let Some(session) = self.0.get(id) {
+  async fn list_all_tasks(&self, id: &String) -> Vec<u64> {
+    if let Some(session) = self.get(id) {
       session.tasks.list()
     } else {
       vec![]

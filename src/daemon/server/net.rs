@@ -4,10 +4,10 @@ use std::{
   time::{Duration, Instant},
 };
 
-use crate::protocol::{
-  handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+use crate::{daemon::states::host_session::HostSessionStorageExt as _, protocol::{
+  handshake::{ConnectHandshake, CONNECT_HANDSHAKE_HEADER_KEY},
   messaging::Message as ProtocolMessage,
-};
+}, utils::states::States as _};
 use anyhow::{Result, anyhow};
 use axum::{
   extract::{

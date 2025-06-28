@@ -1,4 +1,4 @@
-use crate::protocol::messaging::AgentResponse;
+use crate::{daemon::states::host_session::HostSessionStorageExt as _, protocol::messaging::AgentResponse};
 use axum::{
   Json, Router,
   extract::{Query, State},

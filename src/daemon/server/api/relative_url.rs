@@ -11,7 +11,7 @@ use if_addrs::IfAddr;
 use log::error;
 use serde::{Deserialize, Serialize};
 
-use crate::daemon::states::{SharedAppState, host_session::ExtraInfo};
+use crate::{daemon::states::{host_session::ExtraInfo, SharedAppState}, utils::states::States as _};
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
   Router::new()

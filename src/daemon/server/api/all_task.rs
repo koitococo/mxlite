@@ -5,7 +5,7 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::daemon::states::SharedAppState;
+use crate::daemon::states::{host_session::HostSessionStorageExt as _, SharedAppState};
 
 #[derive(Deserialize)]
 struct GetParams {

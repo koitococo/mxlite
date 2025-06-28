@@ -1,7 +1,7 @@
 use axum::{Json, Router, extract::State, routing::method_routing};
 use serde::Serialize;
 
-use crate::daemon::states::SharedAppState;
+use crate::{daemon::states::SharedAppState, utils::states::States as _};
 
 #[derive(Serialize)]
 struct GetResponse {

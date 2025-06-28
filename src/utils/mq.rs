@@ -16,7 +16,7 @@ pub struct VecMq<Tag, Msg> {
   capacity: usize,
 }
 
-impl<Tag: Ord + Clone, Msg> VecMq<Tag, Msg> {
+impl<Tag, Msg> VecMq<Tag, Msg> {
   pub fn new(capacity: usize) -> Self {
     VecMq {
       _inner: Arc::new(RwLock::new(VecDeque::with_capacity(capacity))),

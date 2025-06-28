@@ -7,7 +7,7 @@ use file_map::FileMapStorage;
 use host_session::HostSessionStorage;
 use tokio_util::sync::CancellationToken;
 
-use crate::daemon::StartupArgs;
+use crate::{daemon::StartupArgs, utils::states::States as _};
 
 pub(crate) struct AppState {
   pub(crate) host_session: HostSessionStorage,
