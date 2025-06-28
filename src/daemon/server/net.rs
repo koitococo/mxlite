@@ -37,10 +37,7 @@ pub(super) async fn handle_ws(
   info!("WebSocket connection with {socket_info:?}");
   let ct = app.cancel_signal.child_token();
   match handle_ws_inner(app, socket_info, headers, ws, ct).await {
-    Ok(mut ws) => {
-      // ws.headers_mut().insert("X-Custom-Header", "CustomValue".parse().unwrap());
-      ws
-    }
+    Ok(ws) => ws,
     Err(e) => {
       error!("Failed to handle WebSocket connection: {e}");
       (StatusCode::BAD_REQUEST, "Bad Request").into_response()
@@ -48,27 +45,29 @@ pub(super) async fn handle_ws(
   }
 }
 
+#[inline]
 async fn handle_ws_inner(
   app: SharedAppState, socket_info: SocketConnectInfo, headers: HeaderMap, ws: WebSocketUpgrade, ct: CancellationToken,
 ) -> Result<Response> {
   let params: ConnectHandshake = ConnectHandshake::from_str(
     headers.get(CONNECT_HANDSHAKE_HEADER_KEY).ok_or(anyhow!("Missing handshake header"))?.to_str()?,
   )?;
-  Ok(ws.on_upgrade(async move |socket| {
-    if let Err(e) = handle_socket(socket, params.clone(), socket_info, app.clone(), ct).await {
-      error!(
-        "Failed to handle WebSocket connection for host {}: {}",
-        params.host_id, e
-      );
+  let host_id = params.host_id.clone();
+  let resp = ws.on_upgrade(async move |socket| {
+    let host_id = params.host_id.clone();
+    if let Err(e) = handle_connection(socket, params.clone(), socket_info, app.clone(), ct).await {
+      error!("Failed to handle WebSocket connection for host {}: {}", &host_id, e);
     } else {
-      info!("WebSocket connection closed for id: {}", params.host_id);
+      info!("WebSocket connection closed for id: {}", &host_id);
     }
-    app.host_session.remove(&params.host_id); // usually it should remove the closing session
-  }))
+    app.host_session.remove(&host_id); // usually it should remove the closing session
+  });
+  info!("WebSocket connection established for id: {}", &host_id);
+  Ok(resp)
 }
 
 // Function to handle the WebSocket connection
-async fn handle_socket(
+async fn handle_connection(
   mut ws: WebSocket, params: ConnectHandshake, socket_info: SocketConnectInfo, app: SharedAppState,
   ct: CancellationToken,
 ) -> Result<()> {
@@ -114,7 +113,7 @@ async fn handle_socket(
                 break;
             }
         }
-        r = handle_ws_recv(&mut ws, session.clone()) => {
+        r = handle_recv(&mut ws, session.clone()) => {
             last_seen = Instant::now();
             match r {
                 Ok(true) => continue,
@@ -144,7 +143,7 @@ async fn handle_socket(
   Ok(())
 }
 
-async fn handle_ws_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result<bool> {
+async fn handle_recv(ws: &mut WebSocket, session: Arc<HostSession>) -> Result<bool> {
   if let Some(msg) = ws.recv().await {
     let msg = msg?;
     match msg {

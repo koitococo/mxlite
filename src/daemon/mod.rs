@@ -4,7 +4,6 @@ use clap::Parser;
 use log::{info, warn};
 
 pub mod discovery;
-pub mod script;
 pub mod server;
 pub mod states;
 
@@ -140,15 +139,6 @@ impl TryFrom<Cli> for StartupArgs {
 
 pub async fn main() -> Result<()> {
   let cli = Cli::parse();
-
-  if let Some(script) = &cli.script {
-    info!("Executing script: {script}");
-    let ctx = script::ExecutorContext::try_new()?;
-    ctx.exec_async(script).await?;
-    info!("Script executed successfully");
-    return Ok(());
-  }
-
   crate::logger::install_logger(cli.verbose);
 
   let args = StartupArgs::try_from(cli)?;

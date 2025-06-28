@@ -176,3 +176,11 @@ pub async fn hashes_for_file(
   }
   Ok(result)
 }
+
+pub fn sha2_256_for_str(input: &str) -> Result<String, HashError> {
+  let mut hasher = sha2::Sha256::new();
+  Digest::update(&mut hasher, input.as_bytes());
+  let hash = hasher.finalize();
+  let mut buf = vec![0u8; hash.len() * 2];
+  Ok(lower::encode_str(&hash, buf.as_mut_slice()).map_err(HashError::Base16Error)?.to_string())
+}

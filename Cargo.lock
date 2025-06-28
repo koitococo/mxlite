@@ -1268,6 +1268,7 @@ dependencies = [
  "digest",
  "futures",
  "futures-util",
+ "http",
  "http-range-header",
  "httpdate",
  "if-addrs",

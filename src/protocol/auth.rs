@@ -17,6 +17,14 @@ pub fn generate_keypair() -> ([u8; 32], [u8; 32]) {
   (pubkey, privkey)
 }
 
+pub fn generate_keypair_str() -> (String, String) {
+  let (pubkey, privkey) = generate_keypair();
+  (
+    base64::engine::general_purpose::STANDARD.encode(&pubkey),
+    base64::engine::general_purpose::STANDARD.encode(&privkey),
+  )
+}
+
 fn derive_pubkey(privkey: &[u8; 32]) -> [u8; 32] {
   let keypair = SigningKey::from_bytes(privkey);
   keypair.verifying_key().0
@@ -62,6 +70,16 @@ impl AuthRequest {
       pubkey,
       signature,
     })
+  }
+
+  pub fn new_with_privkey_string(privkey: &str) -> Result<Self> {
+    let privkey = base64::engine::general_purpose::STANDARD
+      .decode(&privkey)
+      .map_err(|e| anyhow::anyhow!("Failed to decode private key: {}", e))?;
+    let Ok(privkey) = privkey.try_into() else {
+      return Err(anyhow::anyhow!("Invalid private key length"));
+    };
+    Self::new(privkey)
   }
 
   pub fn verify(&self) -> bool {

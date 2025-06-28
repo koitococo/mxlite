@@ -44,3 +44,5 @@ impl FromStr for ConnectHandshake {
 }
 
 pub const CONNECT_HANDSHAKE_HEADER_KEY: &str = "X-MxLite-ConnectHandshake";
+pub const CONNECT_AGENT_AUTH_HEADER_KEY: &str = "X-MxLite-Agent-Auth";
+pub const CONNECT_CONTROLLER_AUTH_HEADER_KEY: &str = "X-MxLite-Controller-Auth";

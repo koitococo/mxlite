@@ -4,10 +4,14 @@ use super::cli::StartupArgs;
 use crate::{
   discovery::discover_controller_once,
   protocol::{
-    handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+    auth::AuthRequest,
+    handshake::{ConnectHandshake, CONNECT_AGENT_AUTH_HEADER_KEY, CONNECT_HANDSHAKE_HEADER_KEY},
     messaging::{AgentResponse, Message as ProtocolMessage, PROTOCOL_VERSION},
   },
   system_info::{self},
+  utils::{
+    hash::sha2_256_for_str, retry::{async_with_retry, Retry, RetryResult}, util::safe_sleep
+  },
 };
 
 use tokio::{
@@ -25,11 +29,12 @@ use tokio_tungstenite::{
   MaybeTlsStream, WebSocketStream, connect_async_with_config,
   tungstenite::{
     client::IntoClientRequest,
+    handshake::client::Response,
     protocol::{Message, WebSocketConfig},
   },
 };
 
-use crate::agent::{executor::handle_event, utils::safe_sleep};
+use crate::agent::executor::handle_event;
 
 pub(crate) type MessageSender = Sender<Message>;
 pub(crate) trait MessageSend<T> {
@@ -72,7 +77,36 @@ enum BreakLoopReason {
   LostConnection,
   Shutdown,
   ErrorCaptured,
-  Nonbreak,
+  Continue,
+}
+
+pub(crate) async fn start_agent(args: StartupArgs) -> Result<()> {
+  loop {
+    let Some(ws_url) = get_ws_url(&args).await else {
+      warn!("No controller URL found");
+      continue;
+    };
+    info!("Connecting to controller websocket: {}", &ws_url);
+
+    match async_with_retry(async || handle_connect(&args, &ws_url).await, 5).await {
+      RetryResult::Break => {
+        info!("Exiting...");
+        break;
+      }
+      RetryResult::Return(should_break) => {
+        if should_break {
+          break;
+        } else {
+          continue;
+        }
+      }
+      RetryResult::NoResult => {
+        warn!("Failed to connect to controller");
+      }
+    }
+    safe_sleep(5000).await;
+  }
+  Ok(())
 }
 
 async fn discover_controller() -> Vec<Url> {
@@ -89,85 +123,124 @@ async fn discover_controller() -> Vec<Url> {
   }
 }
 
-pub(crate) async fn handle_ws_url(args: StartupArgs) -> Result<bool> {
-  loop {
-    let ws_url: Url = if let Some(env_ws_url) = args.env_ws_url.as_ref() {
-      info!("Using controller URL from environment variable: {env_ws_url}");
-      Url::from_str(env_ws_url.as_str()).unwrap()
-    } else {
-      info!("Discovering controller URL...");
-      let controllers = select! {
-        r = discover_controller() => r,
-        _ = ctrl_c() => {
-          info!("Canceling discovery and exit");
-          return Ok(true);
-        }
-      };
-      if controllers.is_empty() {
-        warn!("No controller discovered");
-        return Err(anyhow!("Failed to discover controller"));
-      } else {
-        controllers[0].clone()
+async fn get_ws_url(args: &StartupArgs) -> Option<Url> {
+  if let Some(ws_url) = args.ws_url.as_ref() {
+    info!("Using controller URL from environment variable: {ws_url}");
+    Some(Url::from_str(ws_url.as_str()).unwrap())
+  } else {
+    info!("Discovering controller URL...");
+    let controllers = select! {
+      r = discover_controller() => r,
+      _ = ctrl_c() => {
+        info!("Canceling discovery and exit");
+        return None;
       }
     };
-    info!("Connecting to controller websocket: {}", &ws_url);
+    if controllers.is_empty() {
+      warn!("No controller discovered");
+      return None;
+    } else {
+      Some(controllers[0].clone())
+    }
+  }
+}
 
-    let mut req = ws_url.as_str().into_client_request()?;
-    req.headers_mut().insert(
-      CONNECT_HANDSHAKE_HEADER_KEY,
-      (ConnectHandshake {
-        version: PROTOCOL_VERSION,
-        controller_url: ws_url,
-        host_id: args.host_id.clone(),
-        session_id: args.session_id.clone(),
-        envs: args.envs.clone(),
-        system_info: system_info::collect_info(),
-      })
-      .to_string()
-      .parse()?,
-    );
+async fn connect_to(
+  args: &StartupArgs, ws_url: &Url,
+) -> Result<(WebSocketStream<MaybeTlsStream<TcpStream>>, Response)> {
+  let mut req = ws_url.as_str().into_client_request()?;
+  let headers = req.headers_mut();
+  headers.insert(
+    CONNECT_HANDSHAKE_HEADER_KEY,
+    (ConnectHandshake {
+      version: PROTOCOL_VERSION,
+      controller_url: ws_url.clone(),
+      host_id: args.host_id.clone(),
+      session_id: args.session_id.clone(),
+      envs: args.envs.clone(),
+      system_info: system_info::collect_info(),
+    })
+    .to_string()
+    .parse()?,
+  );
+  handle_pre_auth(&args, headers)?;
 
-    let mut retry = 0;
-    while retry < 5 {
-      match connect_async_with_config(req.clone(), Some(WebSocketConfig { ..Default::default() }), false).await {
-        Ok((ws, resp)) => {
-          // resp.headers().iter().for_each(|(k, v)| {
-          //   info!("Response header: {}: {}", k, v.to_str().unwrap_or_default());
-          // });
-          info!("Connected to controller");
-          retry = 0;
-          match handle_conn(ws).await {
-            Err(e) => {
-              error!("Failed to handle connection: {e}");
-              continue;
-            }
-            Ok(exit) => match exit {
-              BreakLoopReason::LostConnection => {
-                error!("Lost connection to controller");
-              }
-              BreakLoopReason::Shutdown => {
-                info!("Shutting down");
-                return Ok(true);
-              }
-              _ => (),
-            },
-          }
-          warn!("Connection closed");
-          if safe_sleep(5000).await {
-            return Ok(true);
-          }
-          break;
+  connect_async_with_config(req.clone(), Some(WebSocketConfig { ..Default::default() }), false)
+    .await
+    .map_err(|e| {
+      error!("Failed to connect to controller: {e}");
+      anyhow!(e)
+    })
+}
+
+fn handle_pre_auth(args: &StartupArgs, headers: &mut http::HeaderMap) -> Result<()> {
+  let (_, privkey) = &args.key_pair;
+  let sign = AuthRequest::new_with_privkey_string(privkey)?;
+  headers.insert(CONNECT_AGENT_AUTH_HEADER_KEY, sign.encode().parse()?);
+  Ok(())
+}
+
+fn handle_post_auth(args: &StartupArgs, resp: &Response) -> bool {
+  let headers = resp.headers();
+  let Some(auth_header) = headers.get(CONNECT_AGENT_AUTH_HEADER_KEY) else {
+    warn!("No authentication header found in response");
+    return !args.enforce_auth;
+  };
+  let Ok(header_val) = auth_header.to_str() else {
+    error!("Failed to convert authentication header to string");
+    return false;
+  };
+  let Ok(auth_req) = AuthRequest::decode(header_val) else {
+    error!("Failed to decode authentication header");
+    return false;
+  };
+  if !auth_req.verify() {
+    error!("Authentication failed, controller is not trusted");
+    return false;
+  }
+  let pubkey = auth_req.encoded_pubkey();
+  if args.enforce_auth {
+    let Ok(hashed) = sha2_256_for_str(&pubkey) else {
+      error!("Failed to hash public key");
+      return false;
+    };
+    return args.trusted_controllers.contains(&hashed)
+  }
+  true
+}
+
+/// Returns a boolean indicating whether the loop should be break
+/// If `None` is returned, it means a error occurred and the loop should continue after sleep
+async fn handle_connect(args: &StartupArgs, ws_url: &Url) -> Retry<bool> {
+  match connect_to(args, ws_url).await {
+    Ok((ws, resp)) => {
+      if !handle_post_auth(args, &resp) {
+        error!("Authentication failed, exiting");
+        return Retry::Return(false);
+      }
+      info!("Connected to controller");
+      match handle_conn(ws).await {
+        Err(e) => {
+          error!("Failed to handle connection: {e}");
+          Retry::RetryImmediate
         }
-        Err(err) => {
-          error!("Failed to connect to controller: {err}");
-          if safe_sleep(((1.5f32).powi(retry) * 3000f32 + 5000f32) as u64).await {
-            return Ok(true);
+        Ok(exit) => match exit {
+          BreakLoopReason::LostConnection => {
+            error!("Lost connection to controller");
+            Retry::RetryWithDelay
           }
-          retry += 1
-        }
+          BreakLoopReason::Shutdown => {
+            info!("Shutting down");
+            Retry::Return(true)
+          }
+          _ => Retry::RetryImmediate,
+        },
       }
     }
-    info!("Retrying connection to controller...");
+    Err(err) => {
+      error!("Failed to connect to controller: {err}");
+      Retry::RetryWithDelay
+    }
   }
 }
 
@@ -263,7 +336,7 @@ async fn handle_msg(msg: Message, tx: Sender<Message>) -> Result<BreakLoopReason
     }
     Message::Frame(_) => warn!("Received a malformed message from controller, ignored",),
   }
-  Ok(BreakLoopReason::Nonbreak)
+  Ok(BreakLoopReason::Continue)
 }
 
 fn handle_text_msg(msg: String, tx: Sender<Message>) {

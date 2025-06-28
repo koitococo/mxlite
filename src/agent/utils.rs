@@ -2,9 +2,6 @@ use std::{fs::File as std_File, io::Read};
 
 use anyhow::Result;
 use log::{error, info};
-use tokio::select;
-
-use crate::utils::signal::ctrl_c;
 
 /// Get the machine UUID from the DMI table.
 /// **Only works on Linux**
@@ -102,18 +99,4 @@ fn get_systemd_machine_id() -> Result<String> {
     &uuid[16..20],
     &uuid[20..32]
   ))
-}
-
-/// Sleep for a given duration, but allow the sleep to be interrupted by a Ctrl-C signal.
-/// 
-/// Returns `true` if the sleep was interrupted by Ctrl-C, `false` otherwise.
-pub(super) async fn safe_sleep(duration: u64) -> bool {
-  select! {
-    _ = tokio::time::sleep(std::time::Duration::from_millis(duration)) => {
-      false
-    },
-    _ = ctrl_c() => {
-      true
-    }
-  }
 }

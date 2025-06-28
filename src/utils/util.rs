@@ -4,8 +4,10 @@ use anyhow::Result;
 use futures_util::StreamExt;
 use log::{error, info};
 use rand::Rng;
-use tokio::{fs::File, io::AsyncWriteExt, process::Command};
+use tokio::{fs::File, io::AsyncWriteExt, process::Command, select};
 use xxhash_rust::xxh3::Xxh3;
+
+use crate::utils::signal::ctrl_c;
 
 /// Download a file from the given URL and save it to the given path. Return the xxh3 hash of the file.
 pub async fn download_file(url: &str, path: &str) -> Result<String> {
@@ -69,7 +71,7 @@ async fn execute_script(cmd: &String) -> Result<(i32, String, String)> {
 }
 
 /// Execute a shell command or script file with `sh`.
-/// 
+///
 /// On most Linux distributions, the `sh` command is a symlink to `bash`.
 /// On macOS, it is a symlink to `bash` 3.0 version.
 /// **Should NOT work on Windows**
@@ -95,4 +97,18 @@ pub fn random_str(len: usize) -> String {
   let mut rng = rand::rng();
   let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   (0..len).map(|_| chars.chars().nth(rng.random_range(0..chars.len())).unwrap()).collect()
+}
+
+/// Sleep for a given duration, but allow the sleep to be interrupted by a Ctrl-C signal.
+///
+/// Returns `true` if the sleep was interrupted by Ctrl-C, `false` otherwise.
+pub async fn safe_sleep(duration: u64) -> bool {
+  select! {
+    _ = tokio::time::sleep(std::time::Duration::from_millis(duration)) => {
+      false
+    },
+    _ = ctrl_c() => {
+      true
+    }
+  }
 }

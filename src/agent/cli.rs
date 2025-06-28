@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::fs;
 
-use crate::utils::util::{get_random_uuid, random_str};
+use crate::{protocol::auth, utils::util::{get_random_uuid, random_str}};
 use anyhow::Result;
 use log::{error, info, warn};
 
@@ -38,7 +38,7 @@ struct Cli {
   #[clap(long, env = "MXA_ENFORCE_AUTH")]
   enforce_auth: bool,
 
-  /// List of trusted controllers.
+  /// A list of trusted controllers.
   /// Each controller should be sha256 hash of controller's public key.
   #[clap(long, env = "MXA_TRUSTED_CONTROLLERS")]
   trusted_controllers: Vec<String>,
@@ -46,12 +46,13 @@ struct Cli {
 
 #[derive(Debug, Clone)]
 pub(crate) struct StartupArgs {
-  pub env_ws_url: Option<String>,
+  pub ws_url: Option<String>,
   pub host_id: String,
   pub session_id: String,
   pub envs: Vec<String>,
-  pub public_key: Option<String>,
-  pub private_key: Option<String>,
+  pub enforce_auth: bool,
+  pub key_pair: (String, String),
+  pub trusted_controllers: Vec<String>,
 }
 
 pub async fn main() -> Result<()> {
@@ -90,26 +91,29 @@ pub async fn main() -> Result<()> {
     .collect::<Vec<_>>();
 
   let startup_args = StartupArgs {
-    env_ws_url: cli.ws_url.clone(),
+    ws_url: cli.ws_url.clone(),
     host_id: host_id.clone(),
     session_id: session_id.clone(),
     envs: envs.clone(),
-    public_key: cli.public_key.clone(),
-    private_key: cli.private_key.clone(),
+    enforce_auth: cli.enforce_auth,
+    key_pair: {
+      if cli.public_key.is_some() && cli.private_key.is_some() {
+        (cli.public_key.unwrap(), cli.private_key.unwrap())
+      } else if cli.public_key.is_none() && cli.private_key.is_none() {
+        let kp = auth::generate_keypair_str();
+        warn!("No public or private key provided, generating a new keypair. Please save it for future use.");
+        info!("Public Key: {}", kp.0);
+        info!("Private Key: {}", kp.1);
+        kp
+      } else {
+        error!("Both public and private keys must be provided or neither.");
+        return Ok(());
+      }
+    },
+    trusted_controllers: cli.trusted_controllers,
   };
 
-  loop {
-    match super::net::handle_ws_url(startup_args.clone()).await {
-      Err(err) => {
-        error!("Agent failed: {err}");
-      }
-      Ok(exit) => {
-        if exit {
-          return Ok(());
-        }
-      }
-    }
-  }
+  super::net::start_agent(startup_args).await
 }
 
 async fn script_main(script: String) -> Result<()> {
@@ -120,7 +124,7 @@ async fn script_main(script: String) -> Result<()> {
       return Ok(());
     }
   };
-  let ctx = super::script::ExecutorContext::try_new()?;
+  let ctx = crate::script::ExecutorContext::try_new()?;
   if let Err(e) = ctx.exec_async(&content).await {
     error!("Failed to execute script: {e}");
   } else {
