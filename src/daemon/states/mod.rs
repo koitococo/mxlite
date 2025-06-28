@@ -5,26 +5,29 @@ use std::sync::Arc;
 
 use file_map::FileMapStorage;
 use host_session::HostSessionStorage;
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use crate::{daemon::StartupArgs, utils::states::States as _};
+use crate::{daemon::cli::StartupArgs, utils::states::States as _};
 
-pub(crate) struct AppState {
-  pub(crate) host_session: HostSessionStorage,
-  pub(crate) file_map: FileMapStorage,
-  pub(crate) cancel_signal: CancellationToken,
-  pub(crate) startup_args: StartupArgs,
+pub struct AppState {
+  pub host_session: HostSessionStorage,
+  pub file_map: FileMapStorage,
+  pub cancel_signal: CancellationToken,
+  pub startup_args: StartupArgs,
+  pub discovery_service: Option<Mutex<crate::daemon::discovery::DiscoveryService>>,
 }
 
 impl AppState {
-  pub(crate) fn new(cancel_signal: CancellationToken, startup_args: StartupArgs) -> Self {
+  pub fn new(startup_args: StartupArgs) -> Self {
     AppState {
       host_session: HostSessionStorage::new(),
       file_map: FileMapStorage::new(),
-      cancel_signal,
+      cancel_signal: CancellationToken::new(),
       startup_args,
+      discovery_service: None,
     }
   }
 }
 
-pub(crate) type SharedAppState = Arc<AppState>;
+pub type SharedAppState = Arc<AppState>;

@@ -6,7 +6,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::daemon::states::SharedAppState;
+use crate::{daemon::states::SharedAppState, utils::states::States};
 
 #[derive(Deserialize)]
 struct PostRequestMapInner {
@@ -80,7 +80,7 @@ struct GetResponse {
 
 async fn get(State(app): State<SharedAppState>) -> Json<GetResponse> {
   Json(GetResponse {
-    files: app.file_map.list_map(),
+    files: app.file_map.list(),
   })
 }
 
@@ -90,7 +90,7 @@ struct DeleteRequest {
 }
 
 async fn delete(State(app): State<SharedAppState>, Query(params): Query<DeleteRequest>) -> StatusCode {
-  app.file_map.del_map(&params.publish_name);
+  app.file_map.remove(&params.publish_name);
   StatusCode::OK
 }
 

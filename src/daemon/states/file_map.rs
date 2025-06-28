@@ -6,27 +6,25 @@ use crate::utils::{
 };
 
 #[derive(Debug, Clone)]
-pub(crate) struct FileMap {
-  pub(crate) file_path: String,
-  pub(crate) xxh3: Option<String>,
-  pub(crate) md5: Option<String>,
-  pub(crate) sha1: Option<String>,
-  pub(crate) sha256: Option<String>,
-  pub(crate) sha512: Option<String>,
+pub struct FileMap {
+  pub file_path: String,
+  pub xxh3: Option<String>,
+  pub md5: Option<String>,
+  pub sha1: Option<String>,
+  pub sha256: Option<String>,
+  pub sha512: Option<String>,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) enum MapItem {
+pub enum MapItem {
   File(FileMap),
   Dir(String),
 }
 
-pub(crate) struct FileMapStorage(AtomicStates<String, MapItem>);
+pub type FileMapStorage = AtomicStates<String, MapItem>;
 
 impl FileMapStorage {
-  pub(crate) fn new() -> Self { FileMapStorage(AtomicStates::new()) }
-
-  pub(crate) fn add_file_map(&self, file_path: String, publish_name: String) -> Result<(), String> {
+  pub fn add_file_map(&self, file_path: String, publish_name: String) -> Result<(), String> {
     let path = Path::new(&file_path);
     if !path.exists() {
       return Err(format!("File not found: {file_path}"));
@@ -38,7 +36,7 @@ impl FileMapStorage {
       .canonicalize()
       .map(|p| p.to_string_lossy().to_string())
       .map_err(|e| format!("Failed to canonicalize path: {e}"))?;
-    self.0.insert(
+    self.insert(
       publish_name,
       MapItem::File(FileMap {
         file_path: new_path,
@@ -64,19 +62,15 @@ impl FileMapStorage {
       .canonicalize()
       .map(|p| p.to_string_lossy().to_string())
       .map_err(|e| format!("Failed to canonicalize path: {e}"))?;
-    self.0.insert(publish_name, MapItem::Dir(new_path));
+    self.insert(publish_name, MapItem::Dir(new_path));
     Ok(())
   }
-
-  pub(crate) fn list_map(&self) -> Vec<String> { self.0.list() }
-
-  pub(crate) fn del_map(&self, publish_name: &String) { self.0.remove(publish_name); }
 
   pub(crate) async fn get_file_with_optional_props(
     &self, publish_name: &String, ensure_xxh3: bool, ensure_md5: bool, ensure_sha1: bool, ensure_sha256: bool,
     ensure_sha512: bool,
   ) -> Option<FileMap> {
-    if let Some(file_map) = self.0.get(publish_name) &&
+    if let Some(file_map) = self.get(publish_name) &&
       let MapItem::File(mut new_inner) = (*file_map).clone()
     {
       if ensure_xxh3 &&
@@ -107,14 +101,14 @@ impl FileMapStorage {
           }
         }
       }
-      self.0.insert(publish_name.clone(), MapItem::File(new_inner.clone()));
+      self.insert(publish_name.clone(), MapItem::File(new_inner.clone()));
       return Some(new_inner);
     }
     None
   }
 
   pub(crate) fn get_dir_child_path(&self, publish_name: &String, subpath: &String) -> Option<String> {
-    if let Some(map_item) = self.0.get(publish_name) &&
+    if let Some(map_item) = self.get(publish_name) &&
       let MapItem::Dir(path) = (*map_item).clone()
     {
       let path = Path::new(&path);

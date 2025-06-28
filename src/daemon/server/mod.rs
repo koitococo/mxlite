@@ -31,10 +31,9 @@ use tokio_rustls::{
 use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
 
-use crate::daemon::{
-  StartupArgs,
-  states::{AppState, SharedAppState},
-};
+use crate::daemon::
+  states::SharedAppState
+;
 
 use crate::utils::signal::ctrl_c;
 
@@ -77,9 +76,9 @@ impl Listener for TlsListener {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub(crate) struct SocketConnectInfo {
-  pub(crate) local_addr: Option<SocketAddr>,
-  pub(crate) remote_addr: Option<SocketAddr>,
+pub struct SocketConnectInfo {
+  pub local_addr: Option<SocketAddr>,
+  pub remote_addr: Option<SocketAddr>,
 }
 
 impl Connected<IncomingStream<'_, TcpListener>> for SocketConnectInfo {
@@ -106,21 +105,21 @@ impl Connected<IncomingStream<'_, TlsListener>> for SocketConnectInfo {
   }
 }
 
-pub(crate) async fn main(config: StartupArgs) -> Result<()> {
-  let halt_signal = CancellationToken::new();
+pub(crate) async fn main(state: SharedAppState) -> Result<()> {
+  let config = &state.startup_args;
+  let halt_signal = state.cancel_signal.clone();
   let halt_lifecycle = halt_signal.child_token();
   let halt_http = halt_signal.child_token();
   let halt_https = halt_signal.child_token();
 
-  let app: SharedAppState = Arc::new(AppState::new(halt_signal.clone(), config.clone()));
   let mut route = Router::new()
     .route("/ws", get(self::net::handle_ws).head(async || StatusCode::OK))
-    .nest("/api", self::api::build(app.clone()))
-    .nest("/files", self::files::build(app.clone()));
-  if let Some(static_path) = config.static_path {
+    .nest("/api", self::api::build(state.clone()))
+    .nest("/files", self::files::build(state.clone()));
+  if let Some(static_path) = &config.static_path {
     route = route.nest_service("/static", ServeDir::new(static_path));
   }
-  let route_srv = route.with_state(app.clone()).into_make_service_with_connect_info::<SocketConnectInfo>();
+  let route_srv = route.with_state(state.clone()).into_make_service_with_connect_info::<SocketConnectInfo>();
 
   let halt_signal2 = halt_signal.clone();
   let http_port = config.http_port;
@@ -139,7 +138,7 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
   info!("HTTP Server started on {}", http_serve.local_addr()?);
 
   let halt_signal2 = halt_signal.clone();
-  let https_serve = if let Some(https) = config.https_args {
+  let https_serve = if let Some(https) = &config.https_args {
     let tls_config = ServerConfig::builder().with_no_client_auth().with_single_cert(
       vec![CertificateDer::from_pem_slice(https.cert.as_bytes())?],
       PrivateKeyDer::from_pem_slice(https.key.as_bytes())?,
@@ -167,7 +166,7 @@ pub(crate) async fn main(config: StartupArgs) -> Result<()> {
 
   join3(
     async {
-      lifecycle_helper(app.clone(), halt_lifecycle.clone()).await;
+      lifecycle_helper(state.clone(), halt_lifecycle.clone()).await;
     },
     async {
       if let Err(e) = http_serve.await {

@@ -7,6 +7,7 @@ mod list_info;
 mod relative_url;
 mod result;
 mod task;
+mod discovery;
 
 use axum::Router;
 
@@ -23,6 +24,7 @@ pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
   let router = Router::new()
     .with_state(app.clone())
     .nest("/all-tasks", self::all_task::build(app.clone()))
+    .nest("/discovery", self::discovery::build(app.clone()))
     .nest("/file-map", self::file_map::build(app.clone()))
     .nest("/fs", self::fs::build(app.clone()))
     .nest("/list", self::list::build(app.clone()))
