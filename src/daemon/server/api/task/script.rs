@@ -19,5 +19,5 @@ async fn post(
 }
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
-  Router::new().with_state(app.clone()).route("/", method_routing::post(post))
+  Router::new().with_state(app).route("/", method_routing::post(post))
 }

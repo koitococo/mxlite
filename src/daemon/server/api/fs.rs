@@ -13,12 +13,10 @@ use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use tokio_util::io::ReaderStream;
 
-use super::super::utils::auth_middleware;
 use crate::daemon::states::SharedAppState;
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
-  let router = Router::new().with_state(app.clone()).route("/lsdir", get(get_lsdir)).route("/read", get(get_read));
-  auth_middleware(router, app.startup_args.apikey.clone())
+  Router::new().with_state(app).route("/lsdir", get(get_lsdir)).route("/read", get(get_read))
 }
 
 #[derive(Deserialize)]

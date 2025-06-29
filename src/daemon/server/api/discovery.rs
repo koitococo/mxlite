@@ -30,7 +30,6 @@ struct PostResponse {
   state: GetResponse,
 }
 
-#[axum::debug_handler]
 async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>) -> Json<PostResponse> {
   let (ok, enabled) = if let Some(ds) = app.discovery_service.as_ref() {
     let mut ds = ds.lock().await;
@@ -62,5 +61,5 @@ async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>
 }
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
-  Router::new().with_state(app.clone()).route("/", method_routing::get(get).post(post))
+  Router::new().with_state(app).route("/", method_routing::get(get).post(post))
 }

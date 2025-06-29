@@ -18,7 +18,7 @@ use crate::{
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
   Router::new()
-    .with_state(app.clone())
+    .with_state(app)
     .route("/by-host", get(get_by_host))
     .route("/by-host-ip", get(get_by_host_ip))
     .route("/by-ip", get(get_by_ip))

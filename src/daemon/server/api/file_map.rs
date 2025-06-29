@@ -95,5 +95,5 @@ async fn delete(State(app): State<SharedAppState>, Query(params): Query<DeleteRe
 }
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {
-  Router::new().with_state(app.clone()).route("/", method_routing::get(get).post(post).delete(delete))
+  Router::new().with_state(app).route("/", method_routing::get(get).post(post).delete(delete))
 }
