@@ -101,7 +101,7 @@ pub enum Status {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AgentResponse {
-  pub id: u64,
+  pub id: u32,
   pub status: Status,
   pub payload: AgentResponsePayload,
 }

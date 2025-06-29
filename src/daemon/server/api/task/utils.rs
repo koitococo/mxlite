@@ -12,14 +12,14 @@ use serde::Serialize;
 #[derive(Serialize)]
 pub(super) struct SendReqResponse {
   ok: bool,
-  task_id: Option<u64>,
+  task_id: Option<u32>,
   reason: Option<String>,
 }
 
 pub(super) async fn send_req_helper(
   app: SharedAppState, host: String, req: ControllerRequestPayload,
 ) -> (StatusCode, Json<SendReqResponse>) {
-  if let Some(r) = app.host_session.send_req(&host, req).await {
+  if let Some(r) = app.host_session.send_request(&host, req).await {
     match r {
       Ok(req_id) => (
         StatusCode::OK,

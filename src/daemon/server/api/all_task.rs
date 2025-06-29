@@ -5,16 +5,18 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::daemon::states::{host_session::HostSessionStorageExt as _, SharedAppState};
+use crate::{daemon::states::SharedAppState, utils::states::States as _};
 
 #[derive(Deserialize)]
 struct GetParams {
   host: String,
 }
 
-async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> Json<Vec<u64>> {
-  let tasks = app.host_session.list_all_tasks(&params.host).await;
-  Json(tasks)
+async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> Json<Vec<u32>> {
+  let Some(session) = app.host_session.get_arc(&params.host) else {
+    return Json(vec![]);
+  };
+  Json(session.tasks.list())
 }
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {

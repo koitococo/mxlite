@@ -1,12 +1,15 @@
 use std::{
-  collections::{btree_map::Entry, BTreeMap, VecDeque},
+  collections::{btree_map::Entry, BTreeMap},
   fmt::Debug,
   sync::{Arc, RwLock},
 };
 
 pub trait States<Key, State> {
   fn insert(&self, key: Key, item: State) -> bool;
-  fn get(&self, key: &Key) -> Option<Arc<State>>;
+
+  // #[deprecated]
+  fn get_arc(&self, key: &Key) -> Option<Arc<State>>;
+
   fn remove(&self, key: &Key);
   fn list(&self) -> Vec<Key>;
 }
@@ -35,7 +38,7 @@ impl<Key: Ord + Clone + Debug, State> States<Key, State> for StateMap<Key, State
     true
   }
 
-  fn get(&self, key: &Key) -> Option<Arc<State>> {
+  fn get_arc(&self, key: &Key) -> Option<Arc<State>> {
     let guard = self._inner.read();
     if guard.is_err() {
       return None;
@@ -80,54 +83,13 @@ impl<Key: Ord + Clone, State> StateMap<Key, State> {
       Entry::Occupied(occupied_entry) => Some(occupied_entry.get().clone()),
     }
   }
-}
 
-#[derive(Debug, Clone)]
-pub struct VecState<Tag, Msg> {
-  _inner: Arc<RwLock<VecDeque<(Tag, Arc<Msg>)>>>,
-  capacity: usize,
-}
-
-impl<Tag, Msg> VecState<Tag, Msg> {
-  pub fn new(capacity: usize) -> Self {
-    VecState {
-      _inner: Arc::new(RwLock::new(VecDeque::with_capacity(capacity))),
-      capacity,
+  pub fn take(&self, key: &Key) -> Option<Arc<State>> {
+    let guard = self._inner.write();
+    if guard.is_err() {
+      return None;
     }
-  }
-
-  pub fn capacity(&self) -> usize { self.capacity }
-}
-
-impl<Tag: Eq + Clone, Msg> States<Tag, Msg> for VecState<Tag, Msg> {
-  fn insert(&self, tag: Tag, msg: Msg) -> bool {
-    let mut guard = self._inner.write().unwrap();
-    while guard.len() >= self.capacity {
-      let _ = guard.pop_front();
-    }
-    guard.push_back((tag, Arc::new(msg)));
-    true
-  }
-
-  fn get(&self, tag: &Tag) -> Option<Arc<Msg>> {
-    let guard = self._inner.read().unwrap();
-    if let Some(pos) = guard.iter().position(|(t, _)| t == tag) {
-      let (_, msg) = guard.get(pos)?;
-      Some(msg.clone())
-    } else {
-      None
-    }
-  }
-
-  fn remove(&self, tag: &Tag) {
-    let mut guard = self._inner.write().unwrap();
-    if let Some(pos) = guard.iter().position(|(t, _)| t == tag) {
-      guard.remove(pos);
-    }
-  }
-
-  fn list(&self) -> Vec<Tag> {
-    let guard = self._inner.read().unwrap();
-    guard.iter().map(|(tag, _)| tag.clone()).collect()
+    let mut guard = guard.unwrap();
+    guard.remove(key)
   }
 }

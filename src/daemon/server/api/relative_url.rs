@@ -51,7 +51,7 @@ struct GetUrlSubResponse {
 async fn get_by_host(
   State(app): State<SharedAppState>, Query(params): Query<GetUrlSubByHostParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
-  if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
+  if let Some(info) = app.host_session.get_arc(&params.host).map(|s| s.extra.clone()) {
     let mut url = info.controller_url.clone();
     let success = if params.https.unwrap_or(false) {
       if let Some(https) = app.startup_args.https_args.as_ref() {
@@ -120,7 +120,7 @@ async fn get_by_host_ip(
   } else {
     ("http", app.startup_args.http_port)
   };
-  if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
+  if let Some(info) = app.host_session.get_arc(&params.host).map(|s| s.extra.clone()) {
     match get_local_ips() {
       Ok(local_nets) => {
         let remote_nets = get_remote_ips(info);
@@ -217,7 +217,7 @@ async fn get_by_ip(
 async fn get_remote_ip_by_host_ip(
   State(app): State<SharedAppState>, Query(params): Query<GetIpByHostParams>,
 ) -> (StatusCode, Json<GetUrlSubResponse>) {
-  if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
+  if let Some(info) = app.host_session.get_arc(&params.host).map(|s| s.extra.clone()) {
     match get_local_ips() {
       Ok(local_nets) => {
         let remote_nets = get_remote_ips(info);

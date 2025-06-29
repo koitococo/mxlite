@@ -92,7 +92,7 @@ impl From<FileWriteParams> for ControllerRequestPayload {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ControllerRequest {
   pub version: u32,
-  pub id: u64,
+  pub id: u32,
   pub payload: ControllerRequestPayload,
 }
 

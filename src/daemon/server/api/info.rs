@@ -21,7 +21,7 @@ struct GetResponse {
 }
 
 async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (StatusCode, Json<GetResponse>) {
-  if let Some(info) = app.host_session.get(&params.host).map(|s| s.extra.clone()) {
+  if let Some(info) = app.host_session.get_arc(&params.host).map(|s| s.extra.clone()) {
     (
       StatusCode::OK,
       Json(GetResponse {

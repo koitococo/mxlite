@@ -70,7 +70,7 @@ impl FileMapStorage {
     &self, publish_name: &String, ensure_xxh3: bool, ensure_md5: bool, ensure_sha1: bool, ensure_sha256: bool,
     ensure_sha512: bool,
   ) -> Option<FileMap> {
-    if let Some(file_map) = self.get(publish_name) &&
+    if let Some(file_map) = self.get_arc(publish_name) &&
       let MapItem::File(mut new_inner) = (*file_map).clone()
     {
       if ensure_xxh3 &&
@@ -108,7 +108,7 @@ impl FileMapStorage {
   }
 
   pub(crate) fn get_dir_child_path(&self, publish_name: &String, subpath: &String) -> Option<String> {
-    if let Some(map_item) = self.get(publish_name) &&
+    if let Some(map_item) = self.get_arc(publish_name) &&
       let MapItem::Dir(path) = (*map_item).clone()
     {
       let path = Path::new(&path);

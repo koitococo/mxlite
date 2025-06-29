@@ -7,14 +7,14 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::daemon::states::{SharedAppState, host_session::TaskState};
+use crate::daemon::states::{SharedAppState};
 
 use super::{ERR_REASON_SESSION_NOT_FOUND, ERR_REASON_TASK_NOT_COMPLETED, ERR_REASON_TASK_NOT_FOUND};
 
 #[derive(Deserialize)]
 struct GetParams {
   host: String,
-  task_id: u64,
+  task_id: u32,
 }
 
 #[derive(Serialize)]
@@ -25,9 +25,9 @@ struct GetResponse {
 }
 
 async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (StatusCode, Json<GetResponse>) {
-  if let Some(state) = app.host_session.get_resp(&params.host, params.task_id).await {
+  if let Some(state) = app.host_session.get_response(&params.host, params.task_id).await {
     if let Some(state) = state {
-      if let TaskState::Finished(resp) = state {
+      if let Some(resp) = state {
         (
           StatusCode::OK,
           Json(GetResponse {

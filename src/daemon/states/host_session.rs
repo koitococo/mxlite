@@ -4,9 +4,7 @@ use crate::{
   daemon::server::SocketConnectInfo,
   protocol::messaging::{AgentResponse, ControllerRequest, ControllerRequestPayload, Message, PROTOCOL_VERSION},
   system_info::SystemInfo,
-  utils::{
-    states::{StateMap, States as _, VecState},
-  },
+  utils::states::{StateMap, States as _},
 };
 use anyhow::Result;
 use log::{debug, warn};
@@ -16,12 +14,6 @@ use tokio::sync::{
   mpsc::{self, Receiver, Sender, error::SendError},
 };
 use url::Url;
-
-#[derive(Clone)]
-pub enum TaskState {
-  Pending,
-  Finished(AgentResponse),
-}
 
 #[derive(Serialize, Debug, Clone)]
 pub struct ExtraInfo {
@@ -37,7 +29,7 @@ pub struct HostSession {
   pub session_id: String,
   tx: Sender<Message>,
   rx: Mutex<Receiver<Message>>,
-  tasks: VecState<u64, TaskState>,
+  pub tasks: StateMap<u32, Option<AgentResponse>>,
   pub extra: ExtraInfo,
   pub notify: Notify,
 }
@@ -50,17 +42,17 @@ impl HostSession {
       session_id: extra.session_id.clone(),
       tx,
       rx: Mutex::new(rx),
-      tasks: VecState::new(128),
+      tasks: StateMap::new(),
       extra,
       notify: Notify::new(),
     }
   }
 
-  pub(crate) async fn send_req(&self, req: ControllerRequest) -> Result<(), SendError<Message>> {
+  pub async fn send_req(&self, req: ControllerRequest) -> Result<(), SendError<Message>> {
     self.tx.send(Message::ControllerRequest(req)).await
   }
 
-  pub(crate) async fn recv_req(&self) -> Option<ControllerRequest> {
+  pub async fn recv_req(&self) -> Option<ControllerRequest> {
     if let Some(Message::ControllerRequest(req)) = self.rx.lock().await.recv().await {
       Some(req)
     } else {
@@ -68,30 +60,24 @@ impl HostSession {
     }
   }
 
-  pub(crate) fn new_task(&self) -> u64 {
-    loop {
-      let id: u64 = rand::random::<u64>() >> 16;
-      if self.tasks.insert(id, TaskState::Pending) {
-        return id;
-      }
-    }
-  }
-
-  pub(crate) fn set_task_finished(&self, id: u64, resp: AgentResponse) {
-    if !self.tasks.insert(id, TaskState::Finished(resp)) {
+  pub fn set_task_finished(&self, id: u32, resp: AgentResponse) {
+    if !self.tasks.insert(id, Some(resp)) {
       warn!("Failed to set task state for id: {id}");
     }
   }
 
-  pub(crate) fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> { self.tasks.get(&id) }
+  pub fn get_task_state(&self, id: u32) -> Option<Arc<Option<AgentResponse>>> { self.tasks.take(&id) }
 }
 
-pub(crate) type HostSessionStorage = StateMap<String, HostSession>;
-pub(crate) trait HostSessionStorageExt {
+pub type HostSessionStorage = StateMap<String, HostSession>;
+pub trait HostSessionStorageExt {
   fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>>;
-  async fn send_req(&self, id: &String, req: ControllerRequestPayload) -> Option<Result<u64, SendError<Message>>>;
-  async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>>;
-  async fn list_all_tasks(&self, id: &String) -> Vec<u64>;
+  fn send_request(
+    &self, id: &String, req: ControllerRequestPayload,
+  ) -> impl std::future::Future<Output = Option<Result<u32, SendError<Message>>>> + Send;
+  fn get_response(
+    &self, id: &String, task_id: u32,
+  ) -> impl std::future::Future<Output = Option<Option<Option<AgentResponse>>>> + Send;
 }
 
 impl HostSessionStorageExt for HostSessionStorage {
@@ -99,10 +85,10 @@ impl HostSessionStorageExt for HostSessionStorage {
     self.try_insert_deferred_returning(host_id.clone(), || HostSession::new(host_id.to_string(), extra))
   }
 
-  async fn send_req(&self, id: &String, req: ControllerRequestPayload) -> Option<Result<u64, SendError<Message>>> {
-    if let Some(session) = self.get(id) {
+  async fn send_request(&self, id: &String, req: ControllerRequestPayload) -> Option<Result<u32, SendError<Message>>> {
+    if let Some(session) = self.get_arc(id) {
       debug!("Sending request to session: {}", session.host_id);
-      let task_id = session.new_task();
+      let task_id: u32 = rand::random::<u32>();
       if let Err(e) = session
         .send_req(ControllerRequest {
           version: PROTOCOL_VERSION,
@@ -120,15 +106,7 @@ impl HostSessionStorageExt for HostSessionStorage {
     }
   }
 
-  async fn get_resp(&self, id: &String, task_id: u64) -> Option<Option<TaskState>> {
-    self.get(id).map(|session| session.get_task_state(task_id).map(|task| task.as_ref().clone()))
-  }
-
-  async fn list_all_tasks(&self, id: &String) -> Vec<u64> {
-    if let Some(session) = self.get(id) {
-      session.tasks.list()
-    } else {
-      vec![]
-    }
+  async fn get_response(&self, id: &String, task_id: u32) -> Option<Option<Option<AgentResponse>>> {
+    self.get_arc(id).map(|session| session.get_task_state(task_id).map(|task| task.as_ref().clone()))
   }
 }
