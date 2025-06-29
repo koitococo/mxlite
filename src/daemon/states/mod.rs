@@ -1,5 +1,5 @@
-pub(crate) mod file_map;
-pub(crate) mod host_session;
+pub mod file_map;
+pub mod host_session;
 
 use std::sync::Arc;
 
@@ -8,7 +8,7 @@ use host_session::HostSessionStorage;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
-use crate::{daemon::cli::StartupArgs, utils::states::States as _};
+use crate::daemon::cli::StartupArgs;
 
 pub struct AppState {
   pub host_session: HostSessionStorage,

@@ -5,8 +5,7 @@ use crate::{
   protocol::messaging::{AgentResponse, ControllerRequest, ControllerRequestPayload, Message, PROTOCOL_VERSION},
   system_info::SystemInfo,
   utils::{
-    mq::{Mq, VecMq},
-    states::{AtomicStates, States as _},
+    states::{StateMap, States as _, VecState},
   },
 };
 use anyhow::Result;
@@ -38,7 +37,7 @@ pub struct HostSession {
   pub session_id: String,
   tx: Sender<Message>,
   rx: Mutex<Receiver<Message>>,
-  tasks: VecMq<u64, TaskState>,
+  tasks: VecState<u64, TaskState>,
   pub extra: ExtraInfo,
   pub notify: Notify,
 }
@@ -51,7 +50,7 @@ impl HostSession {
       session_id: extra.session_id.clone(),
       tx,
       rx: Mutex::new(rx),
-      tasks: VecMq::new(128),
+      tasks: VecState::new(128),
       extra,
       notify: Notify::new(),
     }
@@ -72,22 +71,22 @@ impl HostSession {
   pub(crate) fn new_task(&self) -> u64 {
     loop {
       let id: u64 = rand::random::<u64>() >> 16;
-      if self.tasks.send(id, TaskState::Pending) {
+      if self.tasks.insert(id, TaskState::Pending) {
         return id;
       }
     }
   }
 
   pub(crate) fn set_task_finished(&self, id: u64, resp: AgentResponse) {
-    if !self.tasks.send(id, TaskState::Finished(resp)) {
+    if !self.tasks.insert(id, TaskState::Finished(resp)) {
       warn!("Failed to set task state for id: {id}");
     }
   }
 
-  pub(crate) fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> { self.tasks.receive(&id) }
+  pub(crate) fn get_task_state(&self, id: u64) -> Option<Arc<TaskState>> { self.tasks.get(&id) }
 }
 
-pub(crate) type HostSessionStorage = AtomicStates<String, HostSession>;
+pub(crate) type HostSessionStorage = StateMap<String, HostSession>;
 pub(crate) trait HostSessionStorageExt {
   fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>>;
   async fn send_req(&self, id: &String, req: ControllerRequestPayload) -> Option<Result<u64, SendError<Message>>>;

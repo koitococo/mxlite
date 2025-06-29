@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::utils::{
   hash,
-  states::{AtomicStates, States as _},
+  states::{StateMap, States as _},
 };
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,7 @@ pub enum MapItem {
   Dir(String),
 }
 
-pub type FileMapStorage = AtomicStates<String, MapItem>;
+pub type FileMapStorage = StateMap<String, MapItem>;
 
 impl FileMapStorage {
   pub fn add_file_map(&self, file_path: String, publish_name: String) -> Result<(), String> {
