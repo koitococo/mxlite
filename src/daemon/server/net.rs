@@ -4,10 +4,13 @@ use std::{
   time::{Duration, Instant},
 };
 
-use crate::{daemon::states::host_session::HostSessionStorageExt as _, protocol::{
-  handshake::{ConnectHandshake, CONNECT_HANDSHAKE_HEADER_KEY},
-  messaging::Message as ProtocolMessage,
-}, utils::states::States as _};
+use crate::{
+  protocol::{
+    handshake::{CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
+    messaging::Message as ProtocolMessage,
+  },
+  utils::states::States as _,
+};
 use anyhow::{Result, anyhow};
 use axum::{
   extract::{
@@ -74,16 +77,18 @@ async fn handle_connection(
   info!("WebSocket connection for id: {} {}", params.host_id, params.session_id);
   let session = app
     .host_session
-    .create_session(
-      &params.host_id,
-      ExtraInfo {
-        socket_info,
-        controller_url: params.controller_url,
-        system_info: params.system_info,
-        envs: params.envs,
-        session_id: params.session_id.clone(),
-      },
-    )
+    .try_insert_deferred_returning(params.host_id.clone(), || {
+      HostSession::new(
+        params.host_id.clone(),
+        ExtraInfo {
+          socket_info,
+          controller_url: params.controller_url,
+          system_info: params.system_info,
+          envs: params.envs,
+          session_id: params.session_id.clone(),
+        },
+      )
+    })
     .ok_or(anyhow::anyhow!("Failed to obtain session for id: {}", params.host_id))?;
   if session.session_id != params.session_id {
     error!(

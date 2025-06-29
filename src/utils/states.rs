@@ -1,6 +1,5 @@
 use std::{
-  collections::{btree_map::Entry, BTreeMap},
-  fmt::Debug,
+  collections::{BTreeMap, btree_map::Entry},
   sync::{Arc, RwLock},
 };
 
@@ -27,7 +26,7 @@ impl<Key, State> StateMap<Key, State> {
   }
 }
 
-impl<Key: Ord + Clone + Debug, State> States<Key, State> for StateMap<Key, State> {
+impl<Key: Ord + Clone, State> States<Key, State> for StateMap<Key, State> {
   fn insert(&self, key: Key, item: State) -> bool {
     let guard = self._inner.write();
     if guard.is_err() {
@@ -84,12 +83,14 @@ impl<Key: Ord + Clone, State> StateMap<Key, State> {
     }
   }
 
-  pub fn take(&self, key: &Key) -> Option<Arc<State>> {
-    let guard = self._inner.write();
-    if guard.is_err() {
-      return None;
+  pub fn take_if(&self, key: Key, predicate: impl FnOnce(&State) -> bool) -> Option<Arc<State>> {
+    let v = self.get_arc(&key);
+    if let Some(v) = v {
+      if predicate(&v) {
+        self.remove(&key);
+      }
+      return Some(v);
     }
-    let mut guard = guard.unwrap();
-    guard.remove(key)
+    None
   }
 }

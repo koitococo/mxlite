@@ -1,4 +1,7 @@
-use crate::protocol::messaging::{AgentResponse, Message};
+use crate::{
+  protocol::messaging::{AgentResponse, Message},
+  utils::states::States,
+};
 use log::{debug, info};
 use std::sync::Arc;
 
@@ -13,5 +16,5 @@ pub(super) async fn handle_msg(msg: Message, session: Arc<HostSession>) {
 
 async fn handle_resp(response: AgentResponse, session: Arc<HostSession>) {
   info!("Task Completed: {} {}", session.host_id, response.id);
-  session.set_task_finished(response.id, response);
+  session.tasks.insert(response.id, Some(response));
 }

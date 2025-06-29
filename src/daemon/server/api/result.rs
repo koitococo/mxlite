@@ -1,4 +1,4 @@
-use crate::{daemon::states::host_session::HostSessionStorageExt as _, protocol::messaging::AgentResponse};
+use crate::{protocol::messaging::AgentResponse, utils::states::States};
 use axum::{
   Json, Router,
   extract::{Query, State},
@@ -25,47 +25,47 @@ struct GetResponse {
 }
 
 async fn get(State(app): State<SharedAppState>, params: Query<GetParams>) -> (StatusCode, Json<GetResponse>) {
-  if let Some(state) = app.host_session.get_response(&params.host, params.task_id).await {
-    if let Some(state) = state {
-      if let Some(resp) = state {
-        (
-          StatusCode::OK,
-          Json(GetResponse {
-            ok: true,
-            payload: Some(resp),
-            reason: None,
-          }),
-        )
-      } else {
-        (
-          StatusCode::NOT_FOUND,
-          Json(GetResponse {
-            ok: false,
-            payload: None,
-            reason: Some(ERR_REASON_TASK_NOT_COMPLETED.to_string()),
-          }),
-        )
-      }
-    } else {
-      (
-        StatusCode::NOT_FOUND,
-        Json(GetResponse {
-          ok: false,
-          payload: None,
-          reason: Some(ERR_REASON_TASK_NOT_FOUND.to_string()),
-        }),
-      )
-    }
-  } else {
-    (
+  let Some(session) = app.host_session.get_arc(&params.host) else {
+    return (
       StatusCode::NOT_FOUND,
       Json(GetResponse {
         ok: false,
         payload: None,
         reason: Some(ERR_REASON_SESSION_NOT_FOUND.to_string()),
       }),
-    )
-  }
+    );
+  };
+
+  let Some(task) = session.tasks.take_if(params.task_id, |v| v.is_some()) else {
+    return (
+      StatusCode::NOT_FOUND,
+      Json(GetResponse {
+        ok: false,
+        payload: None,
+        reason: Some(ERR_REASON_TASK_NOT_FOUND.to_string()),
+      }),
+    );
+  };
+
+  let Some(resp) = task.as_ref() else {
+    return (
+      StatusCode::NOT_FOUND,
+      Json(GetResponse {
+        ok: false,
+        payload: None,
+        reason: Some(ERR_REASON_TASK_NOT_COMPLETED.to_string()),
+      }),
+    );
+  };
+
+  (
+    StatusCode::OK,
+    Json(GetResponse {
+      ok: true,
+      payload: Some(resp.clone()),
+      reason: None,
+    }),
+  )
 }
 
 pub(super) fn build(app: SharedAppState) -> Router<SharedAppState> {

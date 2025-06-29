@@ -1,4 +1,4 @@
-use std::{clone::Clone, sync::Arc};
+use std::clone::Clone;
 
 use crate::{
   daemon::server::SocketConnectInfo,
@@ -7,7 +7,7 @@ use crate::{
   utils::states::{StateMap, States as _},
 };
 use anyhow::Result;
-use log::{debug, warn};
+use log::debug;
 use serde::Serialize;
 use tokio::sync::{
   Mutex, Notify,
@@ -59,32 +59,16 @@ impl HostSession {
       None
     }
   }
-
-  pub fn set_task_finished(&self, id: u32, resp: AgentResponse) {
-    if !self.tasks.insert(id, Some(resp)) {
-      warn!("Failed to set task state for id: {id}");
-    }
-  }
-
-  pub fn get_task_state(&self, id: u32) -> Option<Arc<Option<AgentResponse>>> { self.tasks.take(&id) }
 }
 
 pub type HostSessionStorage = StateMap<String, HostSession>;
 pub trait HostSessionStorageExt {
-  fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>>;
   fn send_request(
     &self, id: &String, req: ControllerRequestPayload,
   ) -> impl std::future::Future<Output = Option<Result<u32, SendError<Message>>>> + Send;
-  fn get_response(
-    &self, id: &String, task_id: u32,
-  ) -> impl std::future::Future<Output = Option<Option<Option<AgentResponse>>>> + Send;
 }
 
 impl HostSessionStorageExt for HostSessionStorage {
-  fn create_session(&self, host_id: &String, extra: ExtraInfo) -> Option<Arc<HostSession>> {
-    self.try_insert_deferred_returning(host_id.clone(), || HostSession::new(host_id.to_string(), extra))
-  }
-
   async fn send_request(&self, id: &String, req: ControllerRequestPayload) -> Option<Result<u32, SendError<Message>>> {
     if let Some(session) = self.get_arc(id) {
       debug!("Sending request to session: {}", session.host_id);
@@ -99,14 +83,11 @@ impl HostSessionStorageExt for HostSessionStorage {
       {
         Some(Err(e))
       } else {
+        session.tasks.insert(task_id, None);
         Some(Ok(task_id))
       }
     } else {
       None
     }
-  }
-
-  async fn get_response(&self, id: &String, task_id: u32) -> Option<Option<Option<AgentResponse>>> {
-    self.get_arc(id).map(|session| session.get_task_state(task_id).map(|task| task.as_ref().clone()))
   }
 }
