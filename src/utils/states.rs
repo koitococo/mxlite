@@ -32,39 +32,31 @@ impl<Key, State> StateMap<Key, State> {
 
 impl<Key: Ord + Clone, State> States<Key, State> for StateMap<Key, State> {
   fn insert(&self, key: Key, item: State) -> bool {
-    let guard = self._inner.write();
-    if guard.is_err() {
+    let Ok(mut guard) = self._inner.write() else {
       return false;
-    }
-    let mut guard = guard.unwrap();
+    };
     guard.insert(key, Arc::new(item));
     true
   }
 
   fn get_arc(&self, key: &Key) -> Option<Arc<State>> {
-    let guard = self._inner.read();
-    if guard.is_err() {
+    let Ok(guard) = self._inner.read() else {
       return None;
-    }
-    let guard = guard.unwrap();
+    };
     guard.get(key).cloned()
   }
 
   fn remove(&self, key: &Key) {
-    let guard = self._inner.write();
-    if guard.is_err() {
+    let Ok(mut guard) = self._inner.write() else {
       return;
-    }
-    let mut guard = guard.unwrap();
+    };
     guard.remove(key);
   }
 
   fn list(&self) -> Vec<Key> {
-    let guard = self._inner.read();
-    if guard.is_err() {
+    let Ok(guard) = self._inner.read() else {
       return Vec::with_capacity(0);
-    }
-    let guard = guard.unwrap();
+    };
     guard.keys().cloned().collect()
   }
 }
@@ -72,11 +64,9 @@ impl<Key: Ord + Clone, State> States<Key, State> for StateMap<Key, State> {
 impl<Key: Ord + Clone, State> StateMap<Key, State> {
   pub fn try_insert_deferred_returning<F>(&self, key: Key, f: F) -> Option<Arc<State>>
   where F: FnOnce() -> State {
-    let guard = self._inner.write();
-    if guard.is_err() {
+    let Ok(mut guard) = self._inner.write() else {
       return None;
-    }
-    let mut guard = guard.unwrap();
+    };
     match guard.entry(key) {
       Entry::Vacant(vacant_entry) => {
         let val = Arc::new(f());

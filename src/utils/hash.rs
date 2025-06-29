@@ -55,7 +55,8 @@ pub enum HashError {
 pub async fn digest_for_file(path: &str, mut hasher: Box<dyn DynDigest + Send + Unpin>) -> Result<String, HashError> {
   let mut fd = File::open(path).await?;
   // for files smaller than 1MB we can read the whole file into memory
-  if fd.metadata().await.unwrap().len() < 1024 * 1024 {
+  let metadata = fd.metadata().await.map_err(HashError::IoError)?;
+  if metadata.len() < 1024 * 1024 {
     let mut buf = Vec::new();
     fd.read_to_end(&mut buf).await?;
     hasher.update(&buf);
@@ -110,7 +111,8 @@ pub async fn digests_for_file(
 ) -> Result<Vec<String>, HashError> {
   let mut fd = File::open(path).await?;
   // for files smaller than 1MB we can read the whole file into memory
-  if fd.metadata().await.unwrap().len() < 1024 * 1024 {
+  let metadata = fd.metadata().await.map_err(HashError::IoError)?;
+  if metadata.len() < 1024 * 1024 {
     let mut buf = Vec::new();
     fd.read_to_end(&mut buf).await?;
     for hasher in &mut hashers {
