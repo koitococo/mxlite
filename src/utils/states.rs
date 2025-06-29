@@ -18,6 +18,10 @@ pub struct StateMap<Key, State> {
   _inner: Arc<RwLock<BTreeMap<Key, Arc<State>>>>,
 }
 
+impl<Key, State> Default for StateMap<Key, State> {
+  fn default() -> Self { Self::new() }
+}
+
 impl<Key, State> StateMap<Key, State> {
   pub fn new() -> Self {
     StateMap {

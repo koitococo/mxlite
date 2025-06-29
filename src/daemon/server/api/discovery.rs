@@ -41,13 +41,11 @@ async fn post(State(app): State<SharedAppState>, Json(params): Json<PostRequest>
       } else {
         true
       }
+    } else if let Err(e) = ds.stop().await {
+      log::error!("Failed to stop discovery service: {e}");
+      false
     } else {
-      if let Err(e) = ds.stop().await {
-        log::error!("Failed to stop discovery service: {e}");
-        false
-      } else {
-        true
-      }
+      true
     };
     (ok, true)
   } else {

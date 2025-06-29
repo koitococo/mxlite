@@ -5,12 +5,14 @@ use crate::{
   discovery::discover_controller_once,
   protocol::{
     auth::AuthRequest,
-    handshake::{ConnectHandshake, CONNECT_AGENT_AUTH_HEADER_KEY, CONNECT_HANDSHAKE_HEADER_KEY},
+    handshake::{CONNECT_AGENT_AUTH_HEADER_KEY, CONNECT_HANDSHAKE_HEADER_KEY, ConnectHandshake},
     messaging::{AgentResponse, Message as ProtocolMessage, PROTOCOL_VERSION},
   },
   system_info::{self},
   utils::{
-    hash::sha2_256_for_str, retry::{async_with_retry, Retry, RetryResult}, util::safe_sleep
+    hash::sha2_256_for_str,
+    retry::{Retry, RetryResult, async_with_retry},
+    util::safe_sleep,
   },
 };
 
@@ -138,7 +140,7 @@ async fn get_ws_url(args: &StartupArgs) -> Option<Url> {
     };
     if controllers.is_empty() {
       warn!("No controller discovered");
-      return None;
+      None
     } else {
       Some(controllers[0].clone())
     }
@@ -163,7 +165,7 @@ async fn connect_to(
     .to_string()
     .parse()?,
   );
-  handle_pre_auth(&args, headers)?;
+  handle_pre_auth(args, headers)?;
 
   connect_async_with_config(req.clone(), Some(WebSocketConfig { ..Default::default() }), false)
     .await
@@ -204,7 +206,7 @@ fn handle_post_auth(args: &StartupArgs, resp: &Response) -> bool {
       error!("Failed to hash public key");
       return false;
     };
-    return args.trusted_controllers.contains(&hashed)
+    return args.trusted_controllers.contains(&hashed);
   }
   true
 }

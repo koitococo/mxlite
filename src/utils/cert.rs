@@ -66,7 +66,7 @@ pub fn generate_signed_cert(
 }
 
 /// Reads a certificate and private key from the specified file paths.
-/// 
+///
 /// If the files do not exist, it generates a self-signed certificate using the provided CA certificate and key paths.
 /// If the CA certificate and key paths are not provided, it returns an error.
 pub fn get_cert_from_file(

@@ -150,7 +150,5 @@ impl DiscoveryService {
     Ok(())
   }
 
-  pub fn running(&self) -> bool {
-    self.started
-  }
+  pub fn running(&self) -> bool { self.started }
 }

@@ -31,9 +31,7 @@ use tokio_rustls::{
 use tokio_util::sync::CancellationToken;
 use tower_http::services::ServeDir;
 
-use crate::daemon::
-  states::SharedAppState
-;
+use crate::daemon::states::SharedAppState;
 
 use crate::utils::signal::ctrl_c;
 

@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::daemon::states::{SharedAppState};
+use crate::daemon::states::SharedAppState;
 
 use super::{ERR_REASON_SESSION_NOT_FOUND, ERR_REASON_TASK_NOT_COMPLETED, ERR_REASON_TASK_NOT_FOUND};
 

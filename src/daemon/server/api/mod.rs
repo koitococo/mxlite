@@ -1,4 +1,5 @@
 mod all_task;
+mod discovery;
 mod file_map;
 mod fs;
 mod info;
@@ -7,7 +8,6 @@ mod list_info;
 mod relative_url;
 mod result;
 mod task;
-mod discovery;
 
 use axum::Router;
 

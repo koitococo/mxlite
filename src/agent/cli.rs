@@ -1,7 +1,10 @@
 use clap::Parser;
 use std::fs;
 
-use crate::{protocol::auth, utils::util::{get_random_uuid, random_str}};
+use crate::{
+  protocol::auth,
+  utils::util::{get_random_uuid, random_str},
+};
 use anyhow::Result;
 use log::{error, info, warn};
 
