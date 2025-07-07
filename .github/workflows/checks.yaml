@@ -1,22 +1,14 @@
-name: Cargo Build
+name: Checks
 
 on:
   push:
 
 jobs:
-  build:
-    name: Build
+  checks:
+    name: Cargo Check
     strategy:
       matrix:
         include:
-          - target: x86_64-apple-darwin
-            os: macos-latest
-          - target: aarch64-apple-darwin
-            os: macos-latest
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-          - target: aarch64-pc-windows-msvc
-            os: windows-latest
           - target: x86_64-unknown-linux-musl
             os: ubuntu-24.04
           - target: aarch64-unknown-linux-musl
@@ -36,6 +28,7 @@ jobs:
         with:
           toolchain: nightly
           targets: ${{ matrix.target }}
+          components: clippy, rustfmt
 
       - name: Install musl toolchain
         if: endsWith(matrix.target, '-linux-musl')
@@ -53,11 +46,12 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.target }}-nightly
 
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }} --bins -Z unstable-options --artifact-dir ./artifacts
+      - name: Rustfmt
+        run: cargo fmt --all -- --check
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mxlite-${{ matrix.target }}-nightly
-          path: ./artifacts/*
+      - name: Clippy
+        run: cargo clippy --target ${{ matrix.target }} --all-features --all-targets -- -D warnings
+
+      - name: Unit Tests
+        run: cargo test --target ${{ matrix.target }} --all-features --all-targets
+
