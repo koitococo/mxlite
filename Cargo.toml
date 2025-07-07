@@ -2,7 +2,7 @@
 name = "mxlite"
 version = "0.2.0"
 edition = "2024"
-license = "AGPL-3.0 WITH UBDL-exception"
+license = "MPL-2.0"
 
 [dependencies]
 anyhow = "1.0.98"
